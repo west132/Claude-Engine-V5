@@ -23,6 +23,8 @@ def main():
     su.add_argument("--check", action="store_true", help="only report; change nothing")
     su.add_argument("--auto", action="store_true", help="install everything that needs no admin rights, without asking")
     su.add_argument("--first-run", action="store_true")
+    pt = sub.add_parser("playtest", help="play a short easy scripted session on a simple world and write playtest_report.md")
+    pt.add_argument("--background", default="examples/harbour_guesthouse/background.md"); pt.add_argument("--language", default="en")
     ch = sub.add_parser("chain", help="check a series of saves, oldest to newest, for gaps and silent losses")
     ch.add_argument("background"); ch.add_argument("saves", nargs="+")
     p = sub.add_parser("play", help="play in the terminal")
@@ -53,6 +55,10 @@ def main():
     elif a.cmd == "setup":
         from .setup_wizard import run as setup_run
         sys.exit(setup_run(cfg.root, auto=a.auto, check_only=a.check, first_run=a.first_run))
+    elif a.cmd == "playtest":
+        from pathlib import Path
+        from .playtest import run as playtest_run
+        playtest_run(cfg, Path(a.background), a.language)
     elif a.cmd == "chain":
         from . import helper
         from .audit import check_chain
