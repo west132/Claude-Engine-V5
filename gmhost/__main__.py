@@ -16,6 +16,8 @@ def main():
     c.add_argument("--load", action="store_true", help="also load the model and test schema-constrained output")
     au = sub.add_parser("audit", help="audit a save against its BACKGROUND (engine rules beyond validate)")
     au.add_argument("save"); au.add_argument("background")
+    ch = sub.add_parser("chain", help="check a series of saves, oldest to newest, for gaps and silent losses")
+    ch.add_argument("background"); ch.add_argument("saves", nargs="+")
     p = sub.add_parser("play", help="play in the terminal")
     p.add_argument("campaign"); p.add_argument("--demo", action="store_true")
     a = ap.parse_args()
@@ -40,6 +42,11 @@ def main():
         print("repairs the importer would make:\n  " + "\n  ".join(c.session.get("import_repairs") or ["none"]))
         print(report(audit(c)))
         shutil.rmtree(tmp, ignore_errors=True)
+    elif a.cmd == "chain":
+        from . import helper
+        from .audit import check_chain
+        helper.load(cfg.engine_dir)
+        print("\n".join(check_chain(a.saves, a.background)))
     elif a.cmd == "play":
         from .cli import play
         play(cfg, a.campaign)
