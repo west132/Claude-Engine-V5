@@ -101,8 +101,26 @@ The engine and AI rules together are about 85,000 characters (about 21,000 token
 
 ### Game design
 
-- Undo and replay from a save is not built. The journal makes it possible; the engine should define what is rolled back.
+- Undo and replay is covered under "Planned fixes" below.
 - A few rarely used engine options are not covered by the host. I have not listed them yet; that needs a pass through the engine against the tool list.
+
+### Engine parts the host does not enforce yet
+
+I went through the engine's sections and the host's tools, and then through every input the engine says a player can give. "Not enforced" means no code checks it: the AI is told the rule through the cards, and the checker only catches some breaches. Items marked "by design" are judgement the AI is meant to make, so they are not gaps. I have not tested the "untested" ones; the four example worlds and your campaign do not use them.
+
+| Engine part | What the host does | Status |
+|---|---|---|
+| §16.6 Revising generated Round-0 truth | Nothing. A generated BACKGROUND can be written before play, but there is no flow for revising a provisional fact later. | Planned fix A |
+| §16.7 Repairing a GM error | `audit` finds problems in a save. Nothing restores or replays. | Planned fix B |
+| §16.7 RULE REQUEST ("player asks for a different rule: agree the round it starts") | No flow. | Covered by planned fix B |
+| §13.1 WORK SOURCE: when a role routes work to the player (fixer, guild, employer, patron), `ask` "fitting work came in?" at the BACKGROUND pace, else weekly | Nothing triggers it. It depends on the AI noticing that time has passed. Plans and clocks are enforced as dues; this one is not registered as a due. | Not enforced. Fix: register a work-source due for each such NPC and settle it with `ask` |
+| §8.1 ENCODING on player request (plain by default, switchable during the campaign) | Can only be chosen when a story is created. Settings changes only reply length and language. | Not built. Fix: add it to Settings |
+| Module D.2: gaining item points | `player_update` can add points. Nothing enforces "only from an open-ended source, as the payoff of a major achievement, 1-4 points". | Judgement only, untested |
+| §13.1 Companions joining and leaving | The combat tool accepts a tracked companion. No dedicated check on joining or leaving. | Partial, untested |
+| §16.3 Dues and the R20 / R40 audit lists | Plan and clock dues are enforced during play: a turn cannot close until they are settled. The extra lists that `validate` gives at R20, R40 (open quests, deals, unmoved clocks and so on) come back with the save. I have not checked that the next round is forced to settle each one. | Partial, untested |
+| §13.6 STUCK ("what should I do", options, hints) and a bare "continue" with nothing in progress | The router had no row for it, so the AI improvised and invented what the character did. Now recognised in code and answered with a menu of known leads, no round. | Fixed |
+| §2 RETRIEVAL ("what do I have / know / see") | Answered by the AI, though code holds the exact state. | Works, but code could answer it exactly. Optional |
+| §12 Morale, §13.7 Witnesses, §13.8 Character and values, §13.9 Development threads | Taught to the AI through the cards. | By design |
 
 ### Not an issue (West132.WL)
 
