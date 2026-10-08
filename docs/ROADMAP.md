@@ -45,89 +45,28 @@ Not every NPC is worth a model call. Three tiers, decided by code, not by the AI
 3. World agent when time advances.
 4. Parallel calls, if the backend supports them.
 
-## Engine changes for software use (proposed, to decide)
+## What to change next
 
-The engine was written for a chat page, where one AI does everything. These are the places where I found, by reading the engine and running it against your 120-round campaign, that a software edition could be clearer or safer. Each item says what I checked. The five files in `engine/` stay untouched until you approve a new version.
+The v5 engine is tested: your 120-round campaign ran on it in chat, and the replay test rebuilds every save from R10 to R120. The five files in `engine/` stay exactly as uploaded until you approve a new version. The work falls into three groups, so a host bug is never mistaken for an engine fault.
 
-### Gaps in the engine text
+1. **Host work.** Our code. The engine already says the right thing; the host failed to do it.
+2. **Optional engine suggestions.** In chat the AI settled these by judgement, so they were never a problem for you. Software has to decide in code, so it needs them spelled out. Accept or drop each one.
+3. **Your design ideas.** New features you asked for. They change how the game plays, so they are your decision.
 
-- **Round header wording per language.** AI_RULES says the round header is written in the game language, and the glossary covers names, terms and roll bands, but nothing defines the header's own words (ROUND, saved, save). The host picked 第 N 回合 / 已存 / 下次存档 itself. Add these labels to the glossary.
-- **Which skill draws MP, and what MP a skill gives.** Max MP is `2V + 4 × tier bonus` of "the best MP-drawing skill" (§10.5), and the BACKGROUND lists `mp_powers.draws_mp` as free text. Nothing says how a skill is marked as MP-drawing, so the host matches names against skill ids and ability text. Decision from West132.WL: skills have a class (normal, elite, legendary) and levels, and MP should follow them, with a small dice roll allowed (for example +1d3). One hard rule: a low-level skill must never become unusable for a high-level player. See "Design decisions" below.
-- **Injury on an unrecorded actor.** §10.5 says a hit of half max HP or more, or reaching 0 HP, adds an injury record with a home and effect. §13.1 says incidental actors have no persistent record. The text does not say what happens when an incidental actor takes such a hit. Covered by the death rule below.
-- **Readable lint does not check types.** `validate` checks enum values, duplicate keys, missing NPC identity fields and injuries without a home. It does not check that numeric or date fields actually hold numbers or dates. Your imported chat saves had words in such fields, which the host repairs on import. Add type checks to the lint.
-- **Capsule scanner reads `id:` as a record.** The helper treats a line that starts with `id:` as a capsule record. The save template avoids this by writing `background_ref: {id: }` on one line; I confirmed that writing it on two lines is read as a record named after the id. The fix, suggested by West132.WL, is the usual one in code: explicit open and close markers. See "Design decisions" below.
+## Group 1: Host work
 
-### Design decisions (from West132.WL, to be written into a new engine version)
-
-**1. Skills and MP.**
-- MP comes from the skill's class (NORMAL / ELITE / LEGENDARY) and level. A one-time dice bonus (for example 1d3, rolled when the skill is gained or grows) is allowed. Because §10.5 says max MP is derived and never stored, the rolled bonus must be stored once.
-- Floor rule: powers are costed by their own tier, not by the player's level, and the engine must guarantee that a low-tier power stays castable by a higher-level player (for example: any caster can always afford at least a few uses of a power at or below their tier).
-- `draws_mp` should list skill ids so there is no guessing.
-
-**2. Death at 0 HP, with a switch for important NPCs.** No extra dice. Two settings, chosen in the world settings and asked again at the start of a game:
-- **Protect important NPCs: open or closed.** "Important" means the main NPCs recorded in the BACKGROUND. Default for existing worlds: closed, so they behave as today.
-  - **Open:** an important NPC at 0 HP is down, not dead, and keeps the one-hour window that the engine already has. Help or treatment within that hour stabilises them; the engine's existing rule decides what happens if none comes (§10.5). The mission still counts as open, so the story can go on.
-  - **Closed:** an important NPC is treated like everyone else.
-- **The player's choice overrides protection: yes or no. Default yes.** With yes, anyone the player character tries to attack or kill has no buffer, however important, even when protection is open. The mission fails if they die (the engine records that). With no, protection also holds against the player.
-- **Everyone else at 0 HP is dying** and is killed unless someone helps at once.
-- The player's own character is not covered by these settings.
-- It also settles injuries on incidental actors: they are ordinary NPCs, so the dying rule applies and no record is needed.
-- To confirm when this is built: that the engine's existing one-hour 2d10 roll (wake at 1 HP on 11+, else die) stays as the rule after the hour.
-
-**2b. Who is a main NPC.** The engine has no such mark. §13.1 keeps a persistent record for any NPC who "recurs or matters", which includes minor ones, so "recorded" is not the same as "main". Both the death-protection setting and the role-agent tiers need an explicit field, for example `importance: main` on an NPC in the BACKGROUND, set by the author or by the generator at world creation. Without it, "important NPC" would wrongly cover every recorded NPC.
-
-**3. Saves.**
-- Keep the readable text save and capsule as the export and exchange format, because it is what chat saves and your 120-round campaign use.
-- Under it, keep a structured save that the host owns. Today `journal.json` is written after every turn and replaced safely (written to a temporary file first). It holds the current state, the GM-Δ chain and the pending entries, plus only the last 40 chat messages. Missing: a schema version, a checksum, automatic backups, and a per-round history. Industry practice for game saves is a versioned structured format with migrations, plus backups, and that is what this adds.
-- "As detailed as possible" is best met by the history, not by a bigger text save: every round's player message, tool calls with their dice results, GM-Δ, narration and a snapshot of the state. That is what makes undo, replay and audits possible, and the journal does not keep it today.
-- The text save keeps the engine's rule that nothing is held twice and no fact exists only in the save.
-
-**4. Capsule scanner and explicit markers.**
-- Today a record starts wherever a line begins with `id:`, which is fragile (it misread a perfectly valid two-line reference in my test). That is good to fix, and your suggestion is the standard answer: mark where each record opens and closes.
-- Proposal: every capsule record sits between explicit begin and end markers, for example `BEGIN RECORD <id>` and `END RECORD`, or a fenced block per record. The scanner reads only inside markers. Old v5.0 saves stay importable, because the scanner can fall back to the current rule when it finds no markers.
-
-### Already covered (checked, so no change proposed)
-
-- The helper's `--brief` lines are copied verbatim (AI_RULES). Only the round header is composed by the GM.
-- The glossary already holds names, terms and roll bands per language.
-- Tier boosts for gear are already a table (§B).
-- ENCODING is opt-in and hides capsule and GM-Δ records from a player reading the save, which still matters in software.
-- PROFILE lite is an output-length choice for the player, not a workaround for context size.
-- Checkpoints every 10 rounds also drive the review rules (dues, audit at R20, R40). The host already writes its journal after each turn, so the only open question is whether the review cycle should stay at 10 rounds.
-
-### Size
-
-The engine and AI rules together are about 85,000 characters (about 21,000 tokens). The part always sent is about 6,000 tokens (Part 0, AI rules §1-2 and the routing table); the rest is routed per turn. No change proposed unless a 7B+ test shows the turn overflowing 32K.
-
-### Game design
-
-- Undo and replay is covered under "Planned fixes" below.
-- A few rarely used engine options are not covered by the host. I have not listed them yet; that needs a pass through the engine against the tool list.
-
-### Engine parts the host does not enforce yet
-
-I went through the engine's sections and the host's tools, and then through every input the engine says a player can give. "Not enforced" means no code checks it: the AI is told the rule through the cards, and the checker only catches some breaches. Items marked "by design" are judgement the AI is meant to make, so they are not gaps. I have not tested the "untested" ones; the four example worlds and your campaign do not use them.
-
-| Engine part | What the host does | Status |
+| Item | What happens | Status |
 |---|---|---|
-| §16.6 Revising generated Round-0 truth | Nothing. A generated BACKGROUND can be written before play, but there is no flow for revising a provisional fact later. | Planned fix A |
-| §16.7 Repairing a GM error | `audit` finds problems in a save. Nothing restores or replays. | Planned fix B |
-| §16.7 RULE REQUEST ("player asks for a different rule: agree the round it starts") | No flow. | Covered by planned fix B |
-| §13.1 WORK SOURCE (a role that routes work to the player: `ask` "fitting work came in?" at the BACKGROUND pace, else weekly) | Enforced through the actor's registered plan `due` (Ashfall's Pike has a weekly one), which the host makes the AI settle. Only an NPC with no `due` and no stated pace would be missed; `validate` lists planless actors at each save. | Covered, no change |
-| §8.1 ENCODING on player request (plain by default, switchable during the campaign) | Was chosen only at creation. Settings now also switches it from then on. | Fixed |
-| Module D.2: gaining item points | `player_update` can add points. Nothing enforces "only from an open-ended source, as the payoff of a major achievement, 1-4 points". | Judgement only, untested |
-| §13.1 Companions joining and leaving | The combat tool accepts a tracked companion. No dedicated check on joining or leaving. | Partial, untested |
-| §16.3 Dues and the R20 / R40 audit lists | Plan and clock dues are enforced during play: a turn cannot close until they are settled. The extra lists that `validate` gives at R20, R40 (open quests, deals, unmoved clocks and so on) come back with the save. I have not checked that the next round is forced to settle each one. | Partial, untested |
-| §13.6 STUCK ("what should I do", options, hints) and a bare "continue" with nothing in progress | The router had no row for it, so the AI improvised and invented what the character did. Now recognised in code and answered with a menu of known leads, no round. | Fixed |
-| §2 RETRIEVAL ("what do I have / know / see") | Answered by the AI, though code holds the exact state. | Works, but code could answer it exactly. Optional |
-| §12 Morale, §13.7 Witnesses, §13.8 Character and values, §13.9 Development threads | Taught to the AI through the cards. | By design |
-
-### Not an issue (West132.WL)
-
-- Migrating saves older than v5.0 (§16.5). Only v5.0 saves matter.
-- Module C, bounded scenario endings. Not used by the example worlds; it can stay as written.
-
-### Planned fixes
+| "What should I do" and a bare "continue" (§13.6 STUCK) | The host loads only the engine sections it routes per turn, and none routed this one, so the AI improvised and invented what the character did. Now recognised in code and answered with a menu of known leads, no round. | Fixed |
+| Switching hidden-state encoding mid-campaign (§8.1) | Was chosen only at creation. Settings now switches it. | Fixed |
+| Structured save with per-round history, schema version, checksum and backups | Today `journal.json` is written after every turn and replaced safely, but keeps only the last 40 chat messages and no dice records. See Saves under Group 3. | Planned |
+| Revising generated Round-0 truth (§16.6) | No flow for revising a provisional fact later. | Planned fix A |
+| Repairing a GM error, undo and replay, rule requests (§16.7) | `audit` finds problems; nothing restores or replays. | Planned fix B |
+| Dues and the R20 / R40 audit lists (§16.3) | Plan and clock dues are enforced during play (a turn cannot close until they are settled). The extra lists from `validate` come back with the save; I have not checked that the next round is forced to settle each one. | Partial, untested |
+| Module D.2: gaining item points | `player_update` can add points; nothing enforces "only from an open-ended source, as the payoff of a major achievement, 1-4 points". | Judgement only, untested |
+| Companions joining and leaving (§13.1) | The combat tool accepts a tracked companion; no dedicated check on joining or leaving. | Partial, untested |
+| Retrieval ("what do I have / know / see") | Answered by the AI, though code holds the exact state. | Works; code could answer it exactly (optional) |
+| Size | Engine and AI rules are about 85,000 characters (about 21,000 tokens). The part always sent is about 6,000 tokens; the rest is routed per turn. | No change unless a 7B+ test overflows 32K |
 
 **A. Revising generated Round-0 truth (§16.6).** The rule: a fact the AI generated for the BACKGROUND may be revised while it is still provisional, for a world reason, but never once established, and never to help or hurt the player.
 - **Mark the origin.** When a world is created, the host records whether the BACKGROUND is authored (the person wrote it), generated, or mixed. An authored one changes only when the person changes it. In generated or mixed ones, everything the person did not request is provisional.
@@ -146,8 +85,56 @@ I went through the engine's sections and the host's tools, and then through ever
 - **Build order.** First the per-round history (needed for the structured save anyway), then in-place correction, then rollback and replay, then the button and the verdict screen.
 - **Test.** Replay your 120-round campaign, inject a deliberate error at one round, repair it, and confirm the later saves match what the engine's rules say they should.
 
-### Order
+## Group 2: Optional engine suggestions
 
-1. Decide which of these changes you want in a new engine version.
-2. Update the host to match, keeping v5.0 saves importable.
-3. Re-run the replay test on your real 120-round campaign. It must still reproduce every save.
+- **Round header wording per language.** AI_RULES says the header is written in the game language and the glossary covers names, terms and roll bands, but nothing defines the header's own words (ROUND, saved, save). The host picked 第 N 回合 / 已存 / 下次存档 itself. Suggest adding these labels to the glossary.
+- **Which skill draws MP.** §10.5 sets max MP from "the best MP-drawing skill", and the BACKGROUND lists `mp_powers.draws_mp` as free text, so the host matches names against skill ids and ability text. Suggest listing skill ids. (See Skills and MP in Group 3.)
+- **Injury on an unrecorded actor.** §10.5 adds an injury record on a hit of half max HP or more; §13.1 says incidental actors have no record. The text does not say what happens when an incidental actor takes such a hit. (Settled by the death rule in Group 3.)
+- **Readable lint does not check types.** `validate` checks enums, duplicate keys, missing NPC identity fields and injuries without a home, but not that numeric or date fields hold numbers or dates. Your imported chat saves had words in such fields, which the host repairs on import. Suggest adding type checks.
+- **Capsule scanner reads `id:` as a record.** The save template avoids this by writing `background_ref: {id: }` on one line; I confirmed that two lines are read as a record named after the id.
+  - **Proposed fix, from West132.WL: explicit markers.** Today a record starts wherever a line begins with `id:`, which is fragile (it misread a perfectly valid two-line reference in my test). That is good to fix, and your suggestion is the standard answer: mark where each record opens and closes.
+  - Proposal: every capsule record sits between explicit begin and end markers, for example `BEGIN RECORD <id>` and `END RECORD`, or a fenced block per record. The scanner reads only inside markers. Old v5.0 saves stay importable, because the scanner can fall back to the current rule when it finds no markers.
+
+## Group 3: Your design ideas (new features, not defects)
+
+**1. Skills and MP.**
+- MP comes from the skill's class (NORMAL / ELITE / LEGENDARY) and level. A one-time dice bonus (for example 1d3, rolled when the skill is gained or grows) is allowed. Because §10.5 says max MP is derived and never stored, the rolled bonus must be stored once.
+- Floor rule: powers are costed by their own tier, not by the player's level, and the engine must guarantee that a low-tier power stays castable by a higher-level player (for example: any caster can always afford at least a few uses of a power at or below their tier).
+- `draws_mp` should list skill ids so there is no guessing.
+
+**2. Death at 0 HP, with a switch for important NPCs.** No extra dice. Two settings, chosen in the world settings and asked again at the start of a game:
+- **Protect important NPCs: open or closed.** "Important" means the main NPCs recorded in the BACKGROUND. Default for existing worlds: closed, so they behave as today.
+  - **Open:** an important NPC at 0 HP is down, not dead, and keeps the one-hour window that the engine already has. Help or treatment within that hour stabilises them; the engine's existing rule decides what happens if none comes (§10.5). The mission still counts as open, so the story can go on.
+  - **Closed:** an important NPC is treated like everyone else.
+- **The player's choice overrides protection: yes or no. Default yes.** With yes, anyone the player character tries to attack or kill has no buffer, however important, even when protection is open. The mission fails if they die (the engine records that). With no, protection also holds against the player.
+- **Everyone else at 0 HP is dying** and is killed unless someone helps at once.
+- The player's own character is not covered by these settings.
+- It also settles injuries on incidental actors: they are ordinary NPCs, so the dying rule applies and no record is needed.
+- Confirmed by West132.WL: the engine's existing one-hour 2d10 roll (wake at 1 HP on 11+, else die) stays as the rule after the hour.
+
+**2b. Who is a main NPC.** The engine has no such mark. §13.1 keeps a persistent record for any NPC who "recurs or matters", which includes minor ones, so "recorded" is not the same as "main". Both the death-protection setting and the role-agent tiers need an explicit field, for example `importance: main` on an NPC in the BACKGROUND, set by the author or by the generator at world creation. Without it, "important NPC" would wrongly cover every recorded NPC.
+
+**3. Saves.**
+- Keep the readable text save and capsule as the export and exchange format, because it is what chat saves and your 120-round campaign use.
+- Under it, keep a structured save that the host owns. Today `journal.json` is written after every turn and replaced safely (written to a temporary file first). It holds the current state, the GM-Δ chain and the pending entries, plus only the last 40 chat messages. Missing: a schema version, a checksum, automatic backups, and a per-round history. Industry practice for game saves is a versioned structured format with migrations, plus backups, and that is what this adds.
+- "As detailed as possible" is best met by the history, not by a bigger text save: every round's player message, tool calls with their dice results, GM-Δ, narration and a snapshot of the state. That is what makes undo, replay and audits possible, and the journal does not keep it today.
+- The text save keeps the engine's rule that nothing is held twice and no fact exists only in the save.
+
+## Already covered, by design, or not an issue
+
+- The helper's `--brief` lines are copied verbatim (AI_RULES); only the round header is composed by the GM.
+- The glossary already holds names, terms and roll bands per language.
+- Tier boosts for gear are already a table (§B).
+- ENCODING is opt-in and hides capsule and GM-Δ records from a player reading the save, which still matters in software.
+- PROFILE lite is an output-length choice for the player, not a workaround for context size.
+- Checkpoints every 10 rounds also drive the review rules (dues, audit at R20, R40).
+- WORK SOURCE (§13.1) is enforced through the actor's registered plan `due` (Ashfall's Pike has a weekly one), which the host makes the AI settle.
+- Morale (§12), witnesses (§13.7), character and values (§13.8), development threads (§13.9): taught to the AI through the cards, by design.
+- Saves older than v5.0 (§16.5) and Module C, bounded scenario endings: not an issue (West132.WL).
+
+## Order
+
+1. Finish Group 1: the structured save with per-round history, then fixes A and B, tested on your 120-round saves (inject an error, repair it, confirm the later saves still match).
+2. Decide Group 2 one by one.
+3. Build Group 3 as an opt-in world setting, so existing worlds behave as today.
+4. Re-run the replay test on your real campaign after each step. It must still reproduce every save.
