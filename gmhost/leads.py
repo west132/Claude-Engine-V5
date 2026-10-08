@@ -45,7 +45,7 @@ def _is_open(status) -> bool:
     return bool(s) and not any(w in s[:40] for w in _CLOSED)
 
 
-def known_leads(camp, tree: dict | None = None, cap_index: int = 24) -> list[str]:
+def known_leads(camp, tree: dict | None = None) -> list[str]:
     """Lines the player may be told about: accepted quests still open, obligations with a next step still open, and the people and
     places the character knows (the index in Part A). Nothing hidden: the index is, by definition, what the player knows."""
     tree = tree if tree is not None else camp.tree()
@@ -57,11 +57,14 @@ def known_leads(camp, tree: dict | None = None, cap_index: int = 24) -> list[str
         st = (o.get("state") if isinstance(o, dict) else None) or {}
         if isinstance(st, dict) and st.get("next") and _is_open(st.get("status")):
             out.append(f"open obligation {oid}: next — {_text(st['next'])[:140]}")
-    idx = []
+    caps = {"npcs": 12, "locations": 6, "factions": 4, "quests": 0}
     for section, items in (camp.readable.get("index") or {}).items():
-        if isinstance(items, dict):
-            idx += [f"known {section}/{iid}: {_text(line)[:150]}" for iid, line in items.items()]
-    out += idx[-cap_index:]                           # the newest entries are the most relevant; the index is in order learned
+        if not isinstance(items, dict): continue
+        rows = [(iid, _text(line)) for iid, line in items.items()]
+        if section == "rights_obligations":
+            rows = [(i, l) for i, l in rows if _is_open(l)]
+        out += [f"known {section}/{iid}: {line[:150]}" for iid, line in rows[-caps.get(section, 4):] if caps.get(section, 4)]
+        # the index is in the order learned, so the newest entries (the last ones) are the most relevant
     return out
 
 
