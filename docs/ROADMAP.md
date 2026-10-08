@@ -52,10 +52,37 @@ The engine was written for a chat page, where one AI does everything. These are 
 ### Gaps in the engine text
 
 - **Round header wording per language.** AI_RULES says the round header is written in the game language, and the glossary covers names, terms and roll bands, but nothing defines the header's own words (ROUND, saved, save). The host picked 第 N 回合 / 已存 / 下次存档 itself. Add these labels to the glossary.
-- **Which skill draws MP.** §10.5 sets max MP from "the best MP-drawing skill", and the BACKGROUND only lists `mp_powers.draws_mp` as free text. Nothing says how a skill is marked as MP-drawing, so the host matches names against skill ids and ability text. Add an explicit link, for example `draws_mp` holding skill ids.
-- **Injury on an unrecorded actor.** §10.5 says a hit of half max HP or more, or reaching 0 HP, adds an injury record with a home and effect. §13.1 says incidental actors have no persistent record. The text does not say what happens when an incidental actor takes such a hit. State it (for example: no record, the effect lasts for the scene).
+- **Which skill draws MP, and what MP a skill gives.** Max MP is `2V + 4 × tier bonus` of "the best MP-drawing skill" (§10.5), and the BACKGROUND lists `mp_powers.draws_mp` as free text. Nothing says how a skill is marked as MP-drawing, so the host matches names against skill ids and ability text. Decision from West132.WL: skills have a class (normal, elite, legendary) and levels, and MP should follow them, with a small dice roll allowed (for example +1d3). One hard rule: a low-level skill must never become unusable for a high-level player. See "Design decisions" below.
+- **Injury on an unrecorded actor.** §10.5 says a hit of half max HP or more, or reaching 0 HP, adds an injury record with a home and effect. §13.1 says incidental actors have no persistent record. The text does not say what happens when an incidental actor takes such a hit. Covered by the death rule below.
 - **Readable lint does not check types.** `validate` checks enum values, duplicate keys, missing NPC identity fields and injuries without a home. It does not check that numeric or date fields actually hold numbers or dates. Your imported chat saves had words in such fields, which the host repairs on import. Add type checks to the lint.
-- **Capsule scanner reads `id:` as a record.** The helper treats a line that starts with `id:` as a capsule record. The save template avoids this by writing `background_ref: {id: }` on one line; I confirmed that writing it on two lines is read as a record named after the id. Make the scanner stricter or say so in the template.
+- **Capsule scanner reads `id:` as a record.** The helper treats a line that starts with `id:` as a capsule record. The save template avoids this by writing `background_ref: {id: }` on one line; I confirmed that writing it on two lines is read as a record named after the id. The fix, suggested by West132.WL, is the usual one in code: explicit open and close markers. See "Design decisions" below.
+
+### Design decisions (from West132.WL, to be written into a new engine version)
+
+**1. Skills and MP.**
+- MP comes from the skill's class (NORMAL / ELITE / LEGENDARY) and level. A one-time dice bonus (for example 1d3, rolled when the skill is gained or grows) is allowed. Because §10.5 says max MP is derived and never stored, the rolled bonus must be stored once.
+- Floor rule: powers are costed by their own tier, not by the player's level, and the engine must guarantee that a low-tier power stays castable by a higher-level player (for example: any caster can always afford at least a few uses of a power at or below their tier).
+- `draws_mp` should list skill ids so there is no guessing.
+
+**2. Death at 0 HP, with a switch for important NPCs.** No extra dice. Two settings, chosen in the world settings and asked again at the start of a game:
+- **Protect important NPCs: open or closed.** "Important" means the main NPCs recorded in the BACKGROUND. Default for existing worlds: closed, so they behave as today.
+  - **Open:** an important NPC at 0 HP is down, not dead, and keeps the one-hour window that the engine already has. Help or treatment within that hour stabilises them; the engine's existing rule decides what happens if none comes (§10.5). The mission still counts as open, so the story can go on.
+  - **Closed:** an important NPC is treated like everyone else.
+- **The player's choice overrides protection: yes or no. Default yes.** With yes, anyone the player character tries to attack or kill has no buffer, however important, even when protection is open. The mission fails if they die (the engine records that). With no, protection also holds against the player.
+- **Everyone else at 0 HP is dying** and is killed unless someone helps at once.
+- The player's own character is not covered by these settings.
+- It also settles injuries on incidental actors: they are ordinary NPCs, so the dying rule applies and no record is needed.
+- To confirm when this is built: that the engine's existing one-hour 2d10 roll (wake at 1 HP on 11+, else die) stays as the rule after the hour.
+
+**3. Saves.**
+- Keep the readable text save and capsule as the export and exchange format, because it is what chat saves and your 120-round campaign use.
+- Under it, keep a structured save that the host owns: JSON or SQLite with a schema version, a checksum, safe writing (write to a temporary file, then replace) and automatic backups. Industry practice for game saves is a versioned structured format with migrations, plus backups, and that is what this adds.
+- "As detailed as possible" is best met by the history, not by a bigger text save: every round's rolls, GM-Δ, narration and tool results. That is what makes undo, replay and audits possible. The host already keeps a journal per round; this would make it a documented format.
+- The text save keeps the engine's rule that nothing is held twice and no fact exists only in the save.
+
+**4. Capsule scanner and explicit markers.**
+- Today a record starts wherever a line begins with `id:`, which is fragile (it misread a perfectly valid two-line reference in my test). That is good to fix, and your suggestion is the standard answer: mark where each record opens and closes.
+- Proposal: every capsule record sits between explicit begin and end markers, for example `BEGIN RECORD <id>` and `END RECORD`, or a fenced block per record. The scanner reads only inside markers. Old v5.0 saves stay importable, because the scanner can fall back to the current rule when it finds no markers.
 
 ### Already covered (checked, so no change proposed)
 
