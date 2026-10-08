@@ -281,7 +281,7 @@ function botMsg(tn){
     const zh=LANG==='zh_hans',label=[tn.round!=null?(zh?`第 ${tn.round} 回合`:`Round ${tn.round}`):t('Details'),rolls?(zh?`${rolls} 次掷骰`:`${rolls} roll${rolls>1?'s':''}`):'',(tn.status||[]).length?(zh?`${tn.status.length} 项变化`:`${tn.status.length} change${tn.status.length>1?'s':''}`):''].filter(Boolean).join(' · ');
     h+=`<details class="info"><summary>${esc(label)}</summary><div class="infobody">${tn.header?`<div class="hdr">${esc(tn.header)}</div>`:''}${rolls?`<pre>${esc(tn.lines.join('\n'))}</pre>`:''}${(tn.status||[]).length?`<div class="chips">${tn.status.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}${tn.gm_delta?`<pre>${esc(tn.gm_delta)}</pre>`:''}</div></details>`;
   }
-  if(tn.decision)h+=`<div class="opts">${tn.decision.options.map(o=>`<button data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
+  if(tn.decision&&Array.isArray(tn.decision.options))h+=`<div class="opts">${tn.decision.options.map(o=>`<button data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
   if(tn.save){h+=tn.save.failed?`<div class="note warn">${esc(t('The checkpoint save failed:'))} ${esc(tn.save.failed)}<div class="opts"><button data-act="retry">Retry save</button><button data-act="unsaved">Continue unsaved (one more round)</button></div></div>`:`<div class="note">${esc(t('Checkpoint saved at round'))} ${tn.save.round} (${esc(tn.save.path.split(/[\\/]/).pop())}). ${esc(t('Carry on whenever you like.'))}</div>`}
   (tn.warnings||[]).forEach(w=>h+=`<div class="note">${esc(w)}</div>`);
   if(tn.ended)h+='<div class="note warn">'+esc(t('Your character has died. Open an earlier save to continue.'))+'</div>';

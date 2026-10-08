@@ -201,14 +201,38 @@ def test_guidance_words_in_both_languages():
         assert leads.is_bare_continue(t), t
 
 
-def test_guidance_turn_opens_no_round_and_ends_in_a_menu(cfg, camp):
-    game = Game(cfg, DemoBackend())
+def test_guidance_is_answered_in_code_without_the_model(cfg, camp):
+    game = Game(cfg, scripted())                          # no replies at all: any model call would fail
     r0 = camp.rnd
     for text in ("what should I do?", "continue"):
         res = game.play(camp, text)
         assert camp.rnd == r0 and res.round is None and not res.lines
-        assert res.decision and len(res.decision["options"]) >= 2
-        assert res.narration
+        assert len(res.decision["options"]) >= 2 and res.narration
+
+
+def test_guidance_menu_on_the_real_campaign_uses_only_recorded_lines(cfg, r120):
+    from gmhost import leads
+    r120.readable["language"] = "en"
+    opts = leads.options(r120)
+    assert 2 <= len(opts) <= 6
+    names = {l.split(" — ")[0] for l in r120.readable["index"]["npcs"].values()}
+    known = " ".join(str(v) for sec in r120.readable["index"].values() if isinstance(sec, dict) for v in sec.values())
+    for o in opts:                                       # each option quotes something the player already knows
+        quoted = [n for n in names if n in o]
+        assert quoted or "I deal with" in o or "quest" in o, o
+    assert not any("Demir's Grocery" in o and "Varga" in o for o in opts)
+    r120.readable["language"] = "zh_hans"
+    zh = leads.menu(r120)
+    assert zh["decision"]["question"] == "你想做什么？" and all(o.startswith(("我",)) for o in zh["decision"]["options"])
+
+
+def test_a_decision_without_options_never_reaches_the_page(cfg, camp):
+    b = scripted(TRIAGE,
+                 step("close_round", opened_round=False, visible=["You look around."], decision={"question": "What now?"}),
+                 step("close_round", opened_round=False, visible=["You look around."]),
+                 "You look around the workshop.", OK)
+    res = Game(cfg, b).play(camp, "I look around")
+    assert res.decision is None
 
 
 def test_continue_with_a_plan_in_force_is_not_a_guidance_turn(camp):

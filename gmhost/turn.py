@@ -98,16 +98,13 @@ class Game:
             raise TurnError(str(e))
 
     def _triage(self, camp, ctx, text) -> dict:
-        if leads.needs_guidance(camp, text):                  # recognised in code: a small model must not improvise these
-            ctx.guidance = True
-            return {"triage": "GUIDANCE", "intent": "the player asks what they can do next", "rows": []}
         brief = prompts.state_brief(camp, hp_line(ctx))
         raw = self._chat([{"role": "system", "content": self.system},
                           {"role": "user", "content": prompts.triage_user(self.engine, camp, text, brief)}],
                          schema=prompts.TRIAGE_SCHEMA, temperature=0.1, max_tokens=300)
         try:
             t = extract_json(raw)
-            assert t.get("triage") in ("FAST", "LOOP", "RETRIEVAL", "CONTINUATION")      # GUIDANCE is decided in code only
+            assert t.get("triage") in ("FAST", "LOOP", "RETRIEVAL", "CONTINUATION")
             t["rows"] = [r for r in t.get("rows", []) if any(r == x.id for x in self.engine.routes)]
         except Exception:
             t = {"triage": "LOOP", "intent": text, "rows": ["r01", "r02"]}
@@ -140,12 +137,8 @@ class Game:
     def _referee(self, camp, ctx, text, triage, on_event, opening=False):
         budget = self.backend.n_ctx - self.cfg.model.max_new_tokens - est_tokens(self.system) - 2500
         cards, dropped = self._cards(camp, triage, int(budget * 0.5))
-        extra = ""
-        if triage.get("triage") == "GUIDANCE":
-            cards = [self.engine.card_by_ref("13.6")] + cards
-            extra = leads.guidance_directive(camp, text, ctx.tree())
         for c in cards: ctx.opened_cards.add(c.ref)
-        user = prompts.turn_user(camp, ctx.tree(), text, triage, cards, hp_line(ctx), self.cfg.game.history_turns, opening, extra)
+        user = prompts.turn_user(camp, ctx.tree(), text, triage, cards, hp_line(ctx), self.cfg.game.history_turns, opening)
         msgs = [{"role": "system", "content": self.system}, {"role": "user", "content": user}]
         steps, bad = [], 0
         for _ in range(self.cfg.game.max_referee_steps):
@@ -196,7 +189,7 @@ class Game:
             on_event({"type": "phase", "text": "narrating" if attempt == 0 else f"rewriting (attempt {attempt + 1})"})
             prose = self._chat([{"role": "system", "content": self.narr_sys},
                                 {"role": "user", "content": prompts.narrator_user(camp, text, visible, dialogue, results,
-                                                                                  ctx.learned, decision, prev, lite, issues, ctx.guidance)}],
+                                                                                  ctx.learned, decision, prev, lite, issues)}],
                                temperature=0.8, max_tokens=420 if lite else 1100).strip()
             det = checks.check_prose(prose, camp.language, lite, ctx.secret_terms, bool(decision))
             llm_issues = []
@@ -237,6 +230,8 @@ class Game:
         if not opening and camp.rnd >= camp.T and camp.session.get("deferral") != "one_round":
             return TurnResult(blocked="save_due", narration="A checkpoint save is due and could not be produced. "
                               "Retry the save, or choose “continue unsaved” (one more round only).")
+        if not opening and leads.needs_guidance(camp, text):
+            return self._guidance(camp, text)
         snap = camp.snapshot()
         ctx = TurnCtx(camp, text, engine=self.engine)
         ctx.pending_at_start = copy.deepcopy(camp.session.get("pending_odds"))
@@ -255,12 +250,24 @@ class Game:
             raise
         return self._commit(camp, ctx, text, closed, prose, warnings, steps, on_event, opening)
 
+    def _guidance(self, camp: Campaign, text: str) -> TurnResult:
+        """"What should I do?" and a bare "continue" with nothing in progress (engine §13.6 STUCK). Answered in code from what the
+        player knows: no model call, no round, nothing invented, and the character does nothing the player did not choose (§7)."""
+        m = leads.menu(camp)
+        res = TurnResult(narration=m["narration"], decision=m["decision"])
+        camp.session["history"].append({"player": text, "narration": m["narration"], "round": None, "header": None, "lines": [], "status": []})
+        camp.write_journal()
+        return res
+
     def _commit(self, camp, ctx, text, closed, prose, warnings, steps, on_event, opening) -> TurnResult:
         opened = bool(closed["opened_round"]) and not opening
         if ctx.pending_at_start and camp.session.get("pending_odds") == ctx.pending_at_start and not ctx.stopped_for_odds:
             camp.session["pending_odds"] = None             # the player changed or dropped the shown roll
         lang = camp.language
-        res = TurnResult(lines=[i18n.localize_line(l, lang) for l in ctx.lines], status=[i18n.localize_status(x, lang) for x in ctx.status], narration=prose, decision=closed.get("decision"),
+        dec = closed.get("decision")
+        if not (isinstance(dec, dict) and dec.get("question") and isinstance(dec.get("options"), list) and len(dec["options"]) >= 2):
+            dec = None
+        res = TurnResult(lines=[i18n.localize_line(l, lang) for l in ctx.lines], status=[i18n.localize_status(x, lang) for x in ctx.status], narration=prose, decision=dec,
                          warnings=warnings, steps=steps)
         for L in closed.get("player_learned") or []:
             camp.readable["index"].setdefault(L["section"], {})[L["id"]] = L["line"]

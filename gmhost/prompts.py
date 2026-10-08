@@ -80,7 +80,7 @@ def step_schema_per_tool() -> dict:
 
 
 TRIAGE_SCHEMA = {"type": "object", "properties": {
-    "triage": {"type": "string", "enum": ["FAST", "LOOP", "RETRIEVAL", "CONTINUATION", "GUIDANCE"]},
+    "triage": {"type": "string", "enum": ["FAST", "LOOP", "RETRIEVAL", "CONTINUATION"]},
     "intent": {"type": "string"},
     "rows": {"type": "array", "items": {"type": "string"}}}, "required": ["triage", "intent", "rows"]}
 
@@ -90,8 +90,7 @@ def triage_user(eng: Engine, camp: Campaign, text: str, brief: str) -> str:
             "FAST = the player's own ordinary action: possible, safe, certain, nobody else affected or watching, nothing lasting.\n"
             "LOOP = someone else affected · uncertain or risky outcome · lasting change.\n"
             "RETRIEVAL = the player only asks what they have/know/see (never advances state).\n"
-            "CONTINUATION = established intent/plan/routine carried on under the current order. Only when a plan in force exists.\n"
-            "GUIDANCE = the player asks what to do / for options or hints / says they are stuck, or says 'continue' with no plan in force.\n\n"
+            "CONTINUATION = established intent/plan/routine carried on under the current order.\n\n"
             f"ROUTING TABLE (engine §2.1) — list the ids of every row that applies to what is about to happen:\n{eng.routing_table()}\n\n"
             'Reply with JSON {"triage": ..., "intent": "<player-owned intent in one sentence>", "rows": ["r01", ...]}.')
 
@@ -174,13 +173,12 @@ def recent_text(camp: Campaign, n: int) -> str:
 
 
 def turn_user(camp: Campaign, tree: dict, text: str, triage: dict, cards: list[Card], hp_line: str, history_n: int,
-              opening: bool = False, extra: str = "") -> str:
+              opening: bool = False) -> str:
     cards_txt = "\n\n".join(f"=== ENGINE §{c.ref} {c.title} (verbatim) ===\n{c.text}" for c in cards) or "(no extra sections routed)"
     head = ("NEW GAME — engine §16.2. Establish the opening situation. There is no ROUND yet: call close_round with opened_round=false and "
             "`visible` = what the player perceives at the start (place, time, who/what is naturally noticeable, their starting activity). "
             "Commit nothing unless the engine requires it; invent nothing (I3)." if opening else
             f"PLAYER SAYS: {text}\nTRIAGE: {triage.get('triage')} — intent: {triage.get('intent')}")
-    if extra: head += "\n\n" + extra
     return (f"{head}\n\n{state_text(camp, tree, hp_line)}\n\n== RECENT PLAY (visible prose, for continuity) ==\n{recent_text(camp, history_n)}"
             f"\n\nENGINE SECTIONS ROUTED FOR THIS TURN (verbatim):\n{cards_txt}\n\n"
             "Respond with ONE tool call as JSON. When the turn is resolved, call close_round.")
@@ -205,14 +203,12 @@ def narrator_system(eng: Engine) -> str:
 
 
 def narrator_user(camp: Campaign, text: str, visible: list[str], dialogue: list[dict], results: list[str],
-                  learned: list[str], decision: dict | None, prev: str, lite: bool, retry_issues: list[str] | None,
-                  guidance: bool = False) -> str:
+                  learned: list[str], decision: dict | None, prev: str, lite: bool, retry_issues: list[str] | None) -> str:
     th = camp.readable["narrative_theme"]["current"]
     p = camp.player
     parts = [
         f"GAME LANGUAGE: {lang_name(camp.language)}",
-        f"LENGTH: " + ("SHORT: two or three sentences restating the situation, then the options as a numbered list. The character does nothing yet; do not continue the story."
-                       if guidance else "at most ~120 words unless a real decision, fight or reveal needs more" if lite else "as long as the material change deserves; compress routine"),
+        f"LENGTH: " + ("at most ~120 words unless a real decision, fight or reveal needs more" if lite else "as long as the material change deserves; compress routine"),
         f"THEME (style only): tone {th.get('tone')}; style {th.get('style')}",
         f"PLAYER CHARACTER: {p.get('identity', {}).get('name')} — {p.get('archetype', '')}",
         f"SCENE: {timeutil.date_label(camp.time)} {timeutil.clock_label(camp.time)}, {camp.location_name()}",
