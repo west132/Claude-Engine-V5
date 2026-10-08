@@ -104,7 +104,11 @@ def audit(camp: Campaign) -> list[Finding]:
         if not isinstance(ip, int) or ip < 0: add("error", "item_points", f"{ip!r}: needs an integer >= 0 while module D is on")
     elif "item_points" in p: add("warn", "item_points", "saved while flexible_item_entitlement is off")
     # ---- records ----------------------------------------------------------------------------------
+    pend, camp.pending = camp.pending, []          # import repairs wait for the next block; they are not stamped yet
+    camp._view_cache.clear()
     recs = camp.records()
+    camp.pending = pend
+    camp._view_cache.clear()
     rnd = int(r.get("saved_completed_round") or 0)
     for rid, txt in recs.items():
         mm = re.match(r"^R(\d+):", txt)
@@ -151,3 +155,27 @@ def report(findings: list[Finding]) -> str:
     n = {lv: sum(1 for f in findings if f.level == lv) for lv in ("error", "warn", "info")}
     head = f"audit: {n['error']} errors, {n['warn']} warnings, {n['info']} notes"
     return head + ("\n" + "\n".join(map(str, sorted(findings, key=lambda f: ("error", "warn", "info").index(f.level)))) if findings else "")
+
+
+def check_chain(files: list, background_path: str) -> list[str]:
+    """Validate saves oldest→newest: each alone, and each against the one before (every capsule record carried or retired)."""
+    import re
+    from pathlib import Path
+    m = helper.mod()
+    from .campaign import normalize_background, write_background
+    import tempfile
+    tmp = Path(tempfile.mkdtemp()) / "bg.md"
+    write_background(tmp, normalize_background(Path(background_path).read_text(encoding="utf-8")))
+    items = sorted(((int(re.search(r"_R(\d+)", Path(f).name).group(1)), Path(f)) for f in files))
+    out, prev = [], None
+    for n, f in items:
+        v = m.do_validate(helper.ns(file=str(f), against=None, background=str(tmp)))
+        line = f"R{n}: valid={v['valid']} records={v['decode']['records']}"
+        if prev:
+            w = m.do_validate(helper.ns(file=str(f), against=str(prev[1]), background=str(tmp)))
+            sv = w["survival"]
+            line += f" | vs R{prev[0]}: valid={w['valid']} dropped={len(sv['dropped'])}"
+            if sv["dropped"]: line += f" {sv['dropped'][:3]}"
+            if n - prev[0] > 10: line += f"  (gap: R{prev[0] + 10}..R{n - 10} missing)"
+        out.append(line); prev = (n, f)
+    return out

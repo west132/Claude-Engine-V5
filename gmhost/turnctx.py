@@ -28,6 +28,8 @@ class TurnCtx:
     opened_cards: set = field(default_factory=set)
     engine: object = None
     pending_at_start: object = None
+    check_refused: bool = False         # a roll was attempted and refused; not silently dropped
+    close_warned: bool = False
 
     # ---- ledger views including this turn's uncommitted entries --------------------
     def preview(self) -> Block:

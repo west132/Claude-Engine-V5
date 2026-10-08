@@ -2,171 +2,283 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GM Host</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Storyteller</title>
 <style>
-:root{--bg:#14161a;--panel:#1c1f25;--panel2:#23272f;--line:#2f343e;--text:#e6e8ec;--dim:#9aa3b2;--accent:#e0a458;--good:#6cc08b;--bad:#e06c6c;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--serif:Georgia,'Noto Serif',serif}
-@media (prefers-color-scheme:light){:root{--bg:#f4f1ea;--panel:#fffdf8;--panel2:#efe9dc;--line:#d8d0be;--text:#23211c;--dim:#6b6558;--accent:#9a5b13;--good:#2f7d4e;--bad:#b3392f}}
-*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,sans-serif;display:flex;flex-direction:column}
-header.top{display:flex;gap:.6rem;align-items:center;padding:.5rem 1rem;background:var(--panel);border-bottom:1px solid var(--line)}
-header.top h1{font-size:1rem;margin:0;font-weight:650;letter-spacing:.02em}header.top .sp{flex:1}
-button{font:inherit;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:.35rem .8rem;cursor:pointer}
-button:hover{border-color:var(--accent)}button.primary{background:var(--accent);color:#1a1307;border-color:var(--accent);font-weight:600}button:disabled{opacity:.5;cursor:default}
-.badge{font-size:.78rem;padding:.15rem .5rem;border-radius:99px;border:1px solid var(--line);color:var(--dim)}.badge.ok{color:var(--good);border-color:var(--good)}.badge.bad{color:var(--bad);border-color:var(--bad)}
-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}
-@media (max-width:820px){main{grid-template-columns:1fr}aside{display:none}}
-#log{overflow-y:auto;padding:1rem 1.2rem;scroll-behavior:smooth}
-.turn{max-width:760px;margin:0 auto 1.6rem}
-.you{color:var(--accent);margin:0 0 .4rem;white-space:pre-wrap}.you::before{content:"› ";opacity:.7}
-.hdr{font:12px var(--mono);color:var(--dim);margin:.3rem 0}
-pre.lines{font:12.5px/1.45 var(--mono);background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:4px;padding:.45rem .7rem;margin:.3rem 0;white-space:pre-wrap}
-.chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.3rem 0}.chip{font:12px var(--mono);background:var(--panel2);border-radius:4px;padding:.1rem .5rem;color:var(--dim)}
-.prose{font:16.5px/1.7 var(--serif)}.prose p{margin:.5rem 0}
-details.gm{margin-top:.5rem;color:var(--dim);font-size:.85rem}details.gm pre{font:12px var(--mono);white-space:pre-wrap;background:var(--panel);padding:.5rem;border-radius:4px}
-.opts{display:flex;flex-direction:column;gap:.35rem;margin-top:.6rem}.opts button{text-align:left}
-.note{font-size:.85rem;color:var(--dim);border:1px dashed var(--line);border-radius:6px;padding:.4rem .7rem;margin:.5rem 0}.note.warn{color:var(--bad);border-color:var(--bad)}
-.working{color:var(--dim);font-style:italic;max-width:760px;margin:0 auto}
-aside{border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:.8rem}
-aside h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin:1rem 0 .3rem}
-aside h3:first-child{margin-top:0}.bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:.15rem 0 .4rem}.bar i{display:block;height:100%;background:var(--good)}.bar.mp i{background:#6c9ee0}
-.kv{display:flex;justify-content:space-between;gap:.5rem;font-size:.88rem}.kv span:first-child{color:var(--dim)}ul.l{margin:.2rem 0;padding-left:1.1rem;font-size:.88rem}
-footer.in{display:flex;gap:.5rem;padding:.7rem 1rem;background:var(--panel);border-top:1px solid var(--line)}
-footer.in textarea{flex:1;resize:none;height:3.2rem;font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:.45rem .6rem}
-dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;max-width:640px;width:92vw;padding:1.2rem}dialog::backdrop{background:#0008}
-dialog label{display:block;margin:.6rem 0 .2rem;font-size:.85rem;color:var(--dim)}dialog input,dialog select,dialog textarea{width:100%;font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:.4rem .5rem}
-dialog textarea{height:9rem;font:12.5px var(--mono)}.row{display:flex;gap:.6rem}.row>*{flex:1}.tabs{display:flex;gap:.3rem;margin-top:.8rem}.tabs button.on{border-color:var(--accent);color:var(--accent)}
-.welcome{max-width:640px;margin:8vh auto;text-align:center}.welcome h2{font-weight:600}.camp{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.6rem .9rem;margin:.4rem 0;text-align:left}
-.help{white-space:pre-wrap;text-align:left;background:var(--panel);border:1px solid var(--bad);border-radius:8px;padding:.8rem 1rem;font-size:.9rem}
+:root{
+  --bg:#faf9f5; --surface:#ffffff; --soft:#f0eee6; --line:#e5e2d8; --text:#1f1e1d; --dim:#73726c; --accent:#c96442; --accent-ink:#fff;
+  --good:#3f7d4e; --bad:#b53d2f; --mp:#4b7f95;
+  --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans","Helvetica Neue",Arial,sans-serif;
+  --serif:ui-serif,"Iowan Old Style","Palatino Linotype",Georgia,"Noto Serif","Songti SC",serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{--bg:#262624;--surface:#30302e;--soft:#3a3a37;--line:#41403c;--text:#f2f0ea;--dim:#a8a69e;--accent:#d97757;--accent-ink:#1f1410;--good:#7fc08e;--bad:#e5877a;--mp:#7fb4c9}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 var(--sans);display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* top bar */
+header.top{display:flex;align-items:center;gap:.5rem;padding:.55rem .9rem;padding-top:max(.55rem,env(safe-area-inset-top))}
+.title{font-weight:600;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.title small{font-weight:400;color:var(--dim);margin-left:.5rem}
+.grow{flex:1}
+.ibtn{border-radius:8px;padding:.4rem .65rem;color:var(--dim);font-size:.9rem}
+.ibtn:hover{background:var(--soft);color:var(--text)}
+.ibtn[disabled]{opacity:.4;pointer-events:none}
+.menuwrap{position:relative}
+.menu{position:absolute;right:0;top:calc(100% + 4px);min-width:200px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.35rem;box-shadow:0 8px 28px #0002;z-index:30}
+.menu button{display:block;width:100%;text-align:left;padding:.5rem .7rem;border-radius:8px;font-size:.92rem}
+.menu button:hover{background:var(--soft)}
+.menu button[disabled]{opacity:.4;pointer-events:none}
+.menu hr{border:0;border-top:1px solid var(--line);margin:.3rem 0}
+
+/* conversation */
+main{flex:1;min-height:0;display:flex;flex-direction:column}
+#log{flex:1;overflow-y:auto;scroll-behavior:smooth;padding:1rem 1rem 1.5rem}
+.col{max-width:720px;margin:0 auto}
+.msg{margin:0 0 1.4rem}
+.msg.user{display:flex;justify-content:flex-end}
+.bubble{background:var(--soft);border-radius:18px;padding:.6rem 1rem;max-width:85%;white-space:pre-wrap;overflow-wrap:anywhere}
+.prose{font:17px/1.7 var(--serif)}
+.prose p{margin:0 0 .85em}.prose p:last-child{margin-bottom:0}
+details.info{margin-top:.6rem;font-size:.85rem;color:var(--dim)}
+details.info summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:.4rem;padding:.2rem .55rem;border-radius:8px;user-select:none}
+details.info summary::-webkit-details-marker{display:none}
+details.info summary::before{content:"›";display:inline-block;transition:transform .15s}
+details.info[open] summary::before{transform:rotate(90deg)}
+details.info summary:hover{background:var(--soft)}
+.infobody{margin:.35rem 0 0 .2rem;padding:.7rem .9rem;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.infobody .hdr{font:12px var(--mono);margin-bottom:.4rem;overflow-wrap:anywhere}
+.infobody pre{margin:.3rem 0;font:12.5px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text)}
+.chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.4rem 0}
+.chip{font:12px var(--mono);background:var(--soft);border-radius:999px;padding:.12rem .6rem;color:var(--dim)}
+.opts{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
+.opts button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:.45rem .95rem;font-size:.92rem;text-align:left}
+.opts button:hover{border-color:var(--accent);color:var(--accent)}
+.note{font-size:.88rem;color:var(--dim);background:var(--soft);border-radius:12px;padding:.55rem .85rem;margin:.6rem 0}
+.note.warn{color:var(--bad)}
+.working{display:flex;align-items:center;gap:.6rem;color:var(--dim);font-size:.92rem}
+.spark{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spark{animation:none}}
+
+/* welcome */
+.welcome{max-width:720px;margin:12vh auto 0;padding:0}
+.welcome h2{font:400 2rem/1.25 var(--serif);margin:0 0 .4rem}
+.welcome p{color:var(--dim);margin:.2rem 0 1.2rem}
+.camp{display:flex;justify-content:space-between;align-items:center;gap:.8rem;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:.8rem 1rem;margin:.5rem 0}
+.camp:hover{border-color:var(--accent)}
+.camp small{color:var(--dim);display:block}
+.help{white-space:pre-wrap;background:var(--surface);border:1px solid var(--bad);border-radius:12px;padding:.8rem 1rem;font-size:.9rem}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:.5rem 1rem}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn[disabled]{opacity:.5}
+
+/* composer */
+.composer{padding:.4rem 1rem calc(.5rem + env(safe-area-inset-bottom))}
+.box{max-width:720px;margin:0 auto;display:flex;align-items:flex-end;gap:.5rem;background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:.5rem .55rem .5rem 1.1rem;box-shadow:0 2px 14px #0000000d}
+.box:focus-within{border-color:#c9644266}
+#inp{flex:1;border:0;background:none;color:var(--text);resize:none;font:inherit;max-height:200px;min-height:26px;height:26px;padding:.3rem 0;outline:0}
+#send{width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+#send[disabled]{opacity:.35}
+.foot{max-width:720px;margin:.4rem auto 0;text-align:center;color:var(--dim);font-size:.75rem}
+
+/* status drawer */
+.scrim{position:fixed;inset:0;background:#0005;z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(360px,100vw);background:var(--bg);border-left:1px solid var(--line);z-index:50;overflow-y:auto;padding:1rem 1.1rem calc(1rem + env(safe-area-inset-bottom));transform:translateX(100%);transition:transform .2s}
+.drawer.open{transform:none}
+@media (prefers-reduced-motion:reduce){.drawer{transition:none}}
+.drawer h2{font:400 1.4rem var(--serif);margin:0}
+.drawer h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:1.2rem 0 .35rem;font-weight:600}
+.drawer .top2{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem}
+.kv{display:flex;justify-content:space-between;gap:.8rem;font-size:.9rem;padding:.12rem 0}.kv span:first-child{color:var(--dim)}.kv span:last-child{text-align:right}
+.bar{height:6px;background:var(--soft);border-radius:3px;overflow:hidden;margin:.15rem 0 .5rem}.bar i{display:block;height:100%;background:var(--good)}.bar.mp i{background:var(--mp)}
+ul.l{margin:.2rem 0;padding-left:1.1rem;font-size:.9rem}ul.l li{margin:.15rem 0}
+
+/* dialogs */
+dialog{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:18px;max-width:600px;width:calc(100vw - 2rem);padding:1.3rem;max-height:90vh}
+dialog::backdrop{background:#0006}
+dialog h2{font:400 1.5rem var(--serif);margin:0 0 .6rem}
+dialog label{display:block;margin:.7rem 0 .25rem;font-size:.85rem;color:var(--dim)}
+dialog input,dialog select,dialog textarea{width:100%;font:inherit;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:.5rem .65rem}
+dialog textarea{height:9rem;font:12.5px var(--mono)}
+.row{display:flex;gap:.7rem}.row>*{flex:1;min-width:0}
+.tabs{display:flex;gap:.3rem;margin-top:1rem;flex-wrap:wrap}.tabs button{border:1px solid var(--line);border-radius:999px;padding:.3rem .85rem;font-size:.88rem}.tabs button.on{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.1rem}
+@media (max-width:560px){.row{flex-direction:column;gap:0}.prose{font-size:16.5px}.title small{display:none}}
 </style>
 </head>
 <body>
 <header class="top">
-  <h1>GM Host</h1><span id="model" class="badge">model…</span><span id="camp" class="badge" hidden></span>
-  <span class="sp"></span>
-  <button id="bNew">New</button><button id="bLoad">Load</button><button id="bSave" disabled>Save</button><button id="bSet" disabled>Settings</button><button id="bLog" disabled>Engine log</button>
+  <div class="title" id="title">Storyteller<small id="sub"></small></div>
+  <span class="grow"></span>
+  <button class="ibtn" id="bStatus" disabled aria-label="Open character and world status">Status</button>
+  <div class="menuwrap">
+    <button class="ibtn" id="bMenu" aria-haspopup="true" aria-expanded="false" aria-label="Menu">⋯</button>
+    <div class="menu" id="menu" hidden role="menu">
+      <button id="bNew" role="menuitem">New story</button>
+      <button id="bLoad" role="menuitem">Open or import…</button>
+      <hr>
+      <button id="bSave" role="menuitem" disabled>Save now</button>
+      <button id="bSet" role="menuitem" disabled>Settings</button>
+      <button id="bLog" role="menuitem" disabled>Engine log</button>
+    </div>
+  </div>
 </header>
+
 <main>
-  <section id="log"></section>
-  <aside id="side"></aside>
+  <section id="log" aria-live="polite"><div class="col" id="col"></div></section>
+  <div class="composer">
+    <div class="box">
+      <textarea id="inp" rows="1" placeholder="Reply…" aria-label="Your message" disabled></textarea>
+      <button id="send" aria-label="Send" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+    </div>
+    <div class="foot" id="foot"></div>
+  </div>
 </main>
-<footer class="in">
-  <textarea id="inp" placeholder="What do you do?  (Enter = send, Shift+Enter = new line)" disabled></textarea>
-  <button id="send" class="primary" disabled>Send</button>
-</footer>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="side" aria-label="Status"></aside>
 
 <dialog id="dNew"><form method="dialog" id="fNew">
-  <h2 style="margin-top:0">New campaign</h2>
+  <h2>New story</h2>
   <div class="row"><div><label>Name (letters, digits, _ -)</label><input id="nName" required pattern="[A-Za-z0-9_\-]{1,40}"></div>
-  <div><label>Game language</label><select id="nLang"></select></div></div>
-  <div class="row"><div><label>Output length</label><select id="nProf"><option value="full">full — rich narration</option><option value="lite">lite — short turns (~120 words)</option></select></div>
+  <div><label>Language</label><select id="nLang"></select></div></div>
+  <div class="row"><div><label>Reply length</label><select id="nProf"><option value="full">full — rich narration</option><option value="lite">lite — short (~120 words)</option></select></div>
   <div><label>Hidden state in saves</label><select id="nEnc"><option value="plain">plain (engine default)</option><option value="b64">base64 (spoiler-safe)</option><option value="rot13">rot13</option></select></div></div>
-  <div class="tabs"><button type="button" data-t="ex" class="on">Example</button><button type="button" data-t="paste">My BACKGROUND</button><button type="button" data-t="gen">Generate from idea</button></div>
-  <div id="tEx"><label>Example world</label><select id="nEx"></select></div>
-  <div id="tPaste" hidden><label>Paste a filled BACKGROUND file, or <input type="file" id="nFile" style="display:inline;width:auto;border:0"></label><textarea id="nBg"></textarea></div>
-  <div id="tGen" hidden><label>Describe the world and the character you want (the model fills the BACKGROUND template; you can edit nothing until it validates)</label><textarea id="nPremise" style="font-family:inherit"></textarea></div>
-  <div id="nFill" hidden><p class="note">This world leaves some fields for you to set before play starts.</p><div id="nFillFields"></div></div>
+  <div class="tabs"><button type="button" data-t="ex" class="on">Ready-made world</button><button type="button" data-t="paste">My BACKGROUND</button><button type="button" data-t="gen">Describe an idea</button></div>
+  <div id="tEx"><label>World</label><select id="nEx"></select></div>
+  <div id="tPaste" hidden><label>Paste a filled BACKGROUND file, or <input type="file" id="nFile" style="display:inline;width:auto;border:0;padding:0"></label><textarea id="nBg"></textarea></div>
+  <div id="tGen" hidden><label>Describe the world and the character you want. The model fills in the BACKGROUND template and the program validates it.</label><textarea id="nPremise" style="font-family:inherit"></textarea></div>
+  <div id="nFill" hidden><p class="note">This world leaves a few fields for you to set before it starts.</p><div id="nFillFields"></div></div>
   <div id="nErr" class="note warn" hidden></div>
-  <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem"><button type="button" id="nCancel">Cancel</button><button class="primary" id="nGo" type="submit">Start</button></div>
+  <div class="actions"><button type="button" class="btn" id="nCancel">Cancel</button><button class="btn primary" id="nGo" type="submit">Start</button></div>
 </form></dialog>
 
-<dialog id="dLoad"><h2 style="margin-top:0">Campaigns</h2><div id="lList"></div>
-  <h3 style="margin-bottom:0">Import a save</h3>
-  <p class="note">Works with saves from the chat version of the engine too: give the save file and the BACKGROUND it points at.</p>
-  <div class="row"><div><label>Campaign name</label><input id="iName"></div></div>
+<dialog id="dLoad"><h2>Your stories</h2><div id="lList"></div>
+  <h2 style="font-size:1.15rem;margin-top:1.2rem">Import a save</h2>
+  <p class="note">Works with saves from the chat version too: give the save file and the BACKGROUND it points at.</p>
+  <label>Name for this story</label><input id="iName">
   <label>Save file</label><input type="file" id="iSave"><label>BACKGROUND file</label><input type="file" id="iBg">
   <div id="iErr" class="note warn" hidden></div>
-  <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem"><button id="iGo">Import</button><button id="lClose">Close</button></div></dialog>
+  <div class="actions"><button class="btn" id="lClose">Close</button><button class="btn primary" id="iGo">Import</button></div></dialog>
 
-<dialog id="dSet"><h2 style="margin-top:0">Settings</h2>
-  <label>Output length</label><select id="sProf"><option value="full">full</option><option value="lite">lite</option></select>
-  <label>Game language</label><select id="sLang"></select>
-  <p class="note">Rules, dice and state never change with these settings — only the amount and language of the prose.</p>
-  <div style="display:flex;justify-content:space-between;margin-top:1rem"><span><a id="dlSave" href="#">download newest save</a> · <a id="dlBg" href="/api/download/background">download BACKGROUND</a></span><button id="sClose" class="primary">OK</button></div></dialog>
+<dialog id="dSet"><h2>Settings</h2>
+  <label>Reply length</label><select id="sProf"><option value="full">full</option><option value="lite">lite</option></select>
+  <label>Language</label><select id="sLang"></select>
+  <p class="note">Rules, dice and state never change with these settings — only the length and language of the prose.</p>
+  <div class="actions" style="justify-content:space-between;align-items:center"><span style="font-size:.88rem"><a id="dlSave" href="#">download newest save</a> · <a id="dlBg" href="/api/download/background">download BACKGROUND</a></span><button id="sClose" class="btn primary">Done</button></div></dialog>
 
-<dialog id="dLog"><h2 style="margin-top:0">Engine log (GM-Δ since the last save)</h2>
-  <label style="display:flex;gap:.4rem;align-items:center"><input type="checkbox" id="spoil" style="width:auto"> show hidden entries (spoilers!)</label>
-  <pre id="logTxt" style="font:12px var(--mono);white-space:pre-wrap;max-height:50vh;overflow:auto;background:var(--bg);padding:.6rem;border-radius:6px"></pre>
-  <div style="text-align:right"><button id="gClose">Close</button></div></dialog>
+<dialog id="dLog"><h2>Engine log</h2>
+  <p class="note" style="margin-top:0">Changes recorded since the last save.</p>
+  <label style="display:flex;gap:.5rem;align-items:center"><input type="checkbox" id="spoil" style="width:auto"> show hidden entries (spoilers)</label>
+  <pre id="logTxt" style="font:12px var(--mono);white-space:pre-wrap;max-height:50vh;overflow:auto;background:var(--surface);border:1px solid var(--line);padding:.7rem;border-radius:10px"></pre>
+  <div class="actions"><button class="btn" id="gClose">Close</button></div></dialog>
 
 <script>
 const $=s=>document.querySelector(s);
 const LANGS={en:'English',zh_hans:'简体中文',zh_hant:'繁體中文',ja:'日本語',ko:'한국어',es:'Español',fr:'Français',de:'Deutsch',ru:'Русский',pt:'Português',it:'Italiano',ms:'Bahasa Melayu'};
 let info=null, snap=null, busy=false;
 for (const sel of ['#nLang','#sLang']) $(sel).innerHTML=Object.entries(LANGS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
-const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(path,body){const r=await fetch(path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json','X-GM':'1'},body:body===undefined?undefined:JSON.stringify(body)});const j=await r.json().catch(()=>({error:'bad response'}));if(!r.ok)throw new Error(j.error||r.statusText);return j}
 async function stream(path,body,onEv){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-GM':'1'},body:JSON.stringify(body||{})});if(!r.ok||!r.body){const j=await r.json().catch(()=>({}));throw new Error(j.error||r.statusText)}
  const rd=r.body.getReader(),dec=new TextDecoder();let buf='',out=null;
  for(;;){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;while((i=buf.indexOf('\n\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+2);if(!line.startsWith('data:'))continue;const ev=JSON.parse(line.slice(5));if(ev.type==='done')out=ev.payload;else if(ev.type==='error')throw new Error(ev.message);else onEv&&onEv(ev)}}
  return out}
+const col=()=>$('#col'), scroll=()=>{const l=$('#log');l.scrollTop=l.scrollHeight};
+
+/* menu + drawer */
+const menu=$('#menu');
+function closeMenu(){menu.hidden=true;$('#bMenu').setAttribute('aria-expanded','false')}
+$('#bMenu').onclick=e=>{e.stopPropagation();const o=menu.hidden;menu.hidden=!o;$('#bMenu').setAttribute('aria-expanded',String(o))};
+document.addEventListener('click',e=>{if(!menu.contains(e.target))closeMenu()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMenu();closeDrawer()}});
+function openDrawer(){$('#side').classList.add('open');$('#scrim').hidden=false}
+function closeDrawer(){$('#side').classList.remove('open');$('#scrim').hidden=true}
+$('#bStatus').onclick=openDrawer;$('#scrim').onclick=closeDrawer;
+menu.addEventListener('click',closeMenu);
 
 function render(){
-  const m=$('#model');
-  if(info.model.ready){m.textContent=(info.model.name==='demo'?'DEMO stand-in':'model: '+(info.model.path.split(/[\\/]/).pop()||info.model.name));m.className='badge ok'}
-  else{m.textContent='no model';m.className='badge bad'}
-  const has=!!snap;
-  ['#bSave','#bSet','#bLog'].forEach(s=>$(s).disabled=!has);
-  $('#camp').hidden=!has; if(has)$('#camp').textContent=info.current+' · R'+snap.status.round;
-  $('#inp').disabled=$('#send').disabled=!has||busy||snap?.status.ended||!info.model.ready;
-  side();
+  const has=!!snap, ready=info.model.ready;
+  $('#sub').textContent=has?` ${info.current} · round ${snap.status.round}`:'';
+  ['#bSave','#bSet','#bLog','#bStatus'].forEach(s=>$(s).disabled=!has);
+  $('#inp').disabled=$('#send').disabled=!has||busy||snap?.status.ended||!ready;
+  $('#foot').textContent=ready?(info.model.name==='demo'?'Demo mode — a scripted stand-in, not an AI model.':'Running locally on '+(info.model.path.split(/[\\/]/).pop()||info.model.name)+'. It can make mistakes; the dice and numbers are computed by the program.'):'';
+  drawer();
 }
-function side(){
+function drawer(){
   const a=$('#side');if(!snap){a.innerHTML='';return}
   const s=snap.status,pc=(v,m)=>m?Math.max(0,Math.min(100,100*v/m)):0;
-  let h=`<h3>${esc(s.name)}</h3><div class="kv"><span>${esc(s.archetype||'')}</span><span>${s.level?'Lv '+s.level+' · '+s.xp+' xp':esc(s.vitality||'')}</span></div>
-  <div class="kv"><span>HP</span><span>${s.hp}/${s.max_hp}</span></div><div class="bar"><i style="width:${pc(s.hp,s.max_hp)}%"></i></div>`;
-  if(s.mp!=null)h+=`<div class="kv"><span>MP</span><span>${s.mp}/${s.max_mp}</span></div><div class="bar mp"><i style="width:${pc(s.mp,s.max_mp)}%"></i></div>`;
-  h+=`<h3>Now</h3><div class="kv"><span>When</span><span>${esc(s.time)}</span></div><div class="kv"><span>Where</span><span>${esc(s.location)}</span></div>
-  <div class="kv"><span>Round</span><span>${s.round} · saved ${s.S} · next ${s.T}</span></div>`;
-  if(s.plan)h+=`<div class="note">orders: ${esc(s.plan)}</div>`;
+  let h=`<div class="top2"><div><h2>${esc(s.name)}</h2><div style="color:var(--dim);font-size:.9rem">${esc(s.archetype||'')}${s.level?` · level ${s.level}`:''}</div></div><button class="ibtn" id="xDrawer" aria-label="Close">✕</button></div>
+  <h3>Condition</h3><div class="kv"><span>HP</span><span>${s.hp} / ${s.max_hp}</span></div><div class="bar"><i style="width:${pc(s.hp,s.max_hp)}%"></i></div>`;
+  if(s.mp!=null)h+=`<div class="kv"><span>MP</span><span>${s.mp} / ${s.max_mp}</span></div><div class="bar mp"><i style="width:${pc(s.mp,s.max_mp)}%"></i></div>`;
+  if(s.level)h+=`<div class="kv"><span>Experience</span><span>${s.xp}</span></div>`;
+  if(s.fatigue)h+=`<div class="kv"><span>Fatigue</span><span>${esc(s.fatigue)}</span></div>`;
+  h+=`<h3>Now</h3><div class="kv"><span>When</span><span>${esc(s.time)}</span></div><div class="kv"><span>Where</span><span>${esc(s.location)}</span></div><div class="kv"><span>Round</span><span>${s.round} · saved ${s.S} · next save ${s.T}</span></div>`;
+  if(s.plan)h+=`<div class="note">Standing orders: ${esc(s.plan)}</div>`;
   const inj=(s.injuries||[]).map(i=>`<li>${esc(i.injury)} — ${esc(i.effect)}</li>`).join('');
   if(inj)h+=`<h3>Lasting injuries</h3><ul class="l">${inj}</ul>`;
-  h+=`<h3>Money</h3><div style="font-size:.88rem">${esc(typeof s.money==='object'?Object.entries(s.money||{}).map(([k,v])=>v+' '+k).join(', '):s.money)}</div>`;
-  const res=Object.values(s.resources||{}).map(r=>`<li>${esc(r.name)}: ${r.tracking==='exact'?r.count:'die '+r.usage_die}</li>`).join('');
+  const money=typeof s.money==='object'?Object.entries(s.money||{}).filter(([k,v])=>typeof v!=='string'||k==='currency').map(([k,v])=>k==='currency'?'':v+' '+k.replace(/_/g,' ')).filter(Boolean).join(', '):s.money;
+  h+=`<h3>Money</h3><div style="font-size:.9rem">${esc(money||'—')}${s.money&&s.money.currency?' '+esc(s.money.currency):''}</div>`;
+  const res=Object.values(s.resources||{}).map(r=>`<li>${esc(r.name)}: ${r.tracking==='exact'?r.count:'usage die '+r.usage_die}</li>`).join('');
   h+=`<h3>Supplies</h3><ul class="l">${res||'<li>—</li>'}</ul>`;
-  h+=`<h3>Gear</h3><ul class="l">${(s.equipment||[]).map(e=>`<li>${esc(e.name)} <small>(${esc(e.condition)})</small></li>`).join('')||'<li>—</li>'}</ul>`;
-  h+=`<h3>Skills</h3><ul class="l">${Object.entries(s.skills||{}).map(([k,v])=>`<li>${esc(k)} — ${v.tier} ${v.class} <small>${v.growth_evidence}ev</small></li>`).join('')}</ul>`;
+  h+=`<h3>Carrying</h3><ul class="l">${(s.equipment||[]).map(e=>`<li>${esc(e.name)} <small style="color:var(--dim)">(${esc(e.condition)})</small></li>`).join('')||'<li>—</li>'}</ul>`;
+  h+=`<h3>Skills</h3><ul class="l">${Object.entries(s.skills||{}).map(([k,v])=>`<li>${esc(k.replace(/_/g,' '))} — ${v.tier} <small style="color:var(--dim)">${v.class.toLowerCase()}</small></li>`).join('')}</ul>`;
   const idx=s.index||{};let known='';for(const[sec,items]of Object.entries(idx)){if(Array.isArray(items)){items.forEach(x=>known+=`<li>${esc(x)}</li>`)}else for(const[id,l]of Object.entries(items))known+=`<li>${esc(l)}</li>`}
-  h+=`<h3>Known</h3><ul class="l">${known||'<li>—</li>'}</ul>`;
-  a.innerHTML=h;
+  h+=`<h3>People and places you know</h3><ul class="l">${known||'<li>—</li>'}</ul>`;
+  a.innerHTML=h;$('#xDrawer').onclick=closeDrawer;
 }
-function turnHTML(t){
-  let h='<div class="turn">';
-  if(t.player&&t.player!=='(start)')h+=`<p class="you">${esc(t.player)}</p>`;
-  if(t.header)h+=`<div class="hdr">${esc(t.header)}</div>`;
-  if(t.lines&&t.lines.length)h+=`<pre class="lines">${esc(t.lines.join('\n'))}</pre>`;
-  if(t.status&&t.status.length)h+=`<div class="chips">${t.status.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`;
-  h+=`<div class="prose">${(t.narration||'').split(/\n{1,}/).filter(Boolean).map(p=>`<p>${esc(p)}</p>`).join('')}</div>`;
-  if(t.gm_delta)h+=`<details class="gm"><summary>GM-Δ</summary><pre>${esc(t.gm_delta)}</pre></details>`;
+
+/* conversation */
+function userMsg(text){return `<div class="msg user"><div class="bubble">${esc(text)}</div></div>`}
+function botMsg(t){
+  let h='<div class="msg bot">';
+  const paras=(t.narration||'').split(/\n+/).filter(Boolean);
+  if(paras.length)h+=`<div class="prose">${paras.map(p=>`<p>${esc(p)}</p>`).join('')}</div>`;
+  const rolls=(t.lines||[]).length, hasInfo=t.header||rolls||(t.status||[]).length||t.gm_delta;
+  if(hasInfo){
+    const label=[t.round!=null?`Round ${t.round}`:'Details',rolls?`${rolls} roll${rolls>1?'s':''}`:'',(t.status||[]).length?`${t.status.length} change${t.status.length>1?'s':''}`:''].filter(Boolean).join(' · ');
+    h+=`<details class="info"><summary>${esc(label)}</summary><div class="infobody">${t.header?`<div class="hdr">${esc(t.header)}</div>`:''}${rolls?`<pre>${esc(t.lines.join('\n'))}</pre>`:''}${(t.status||[]).length?`<div class="chips">${t.status.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}${t.gm_delta?`<pre>${esc(t.gm_delta)}</pre>`:''}</div></details>`;
+  }
   if(t.decision)h+=`<div class="opts">${t.decision.options.map(o=>`<button data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
-  if(t.save){h+=t.save.failed?`<div class="note warn">Checkpoint save FAILED: ${esc(t.save.failed)}<div class="opts" style="flex-direction:row"><button data-act="retry">Retry save</button><button data-act="unsaved">Continue unsaved (one more round)</button></div></div>`:`<div class="note">Checkpoint saved: R${t.save.round} (${esc(t.save.path.split(/[\\/]/).pop())}). Play stops here for you — continue whenever you like.</div>`}
+  if(t.save){h+=t.save.failed?`<div class="note warn">The checkpoint save failed: ${esc(t.save.failed)}<div class="opts"><button data-act="retry">Retry save</button><button data-act="unsaved">Continue unsaved (one more round)</button></div></div>`:`<div class="note">Checkpoint saved at round ${t.save.round} (${esc(t.save.path.split(/[\\/]/).pop())}). Carry on whenever you like.</div>`}
   (t.warnings||[]).forEach(w=>h+=`<div class="note">${esc(w)}</div>`);
-  if(t.ended)h+='<div class="note warn">Your character is dead. Load an earlier save to continue.</div>';
+  if(t.ended)h+='<div class="note warn">Your character has died. Open an earlier save to continue.</div>';
   return h+'</div>';
 }
-function addTurn(t){const d=document.createElement('div');d.innerHTML=turnHTML(t);$('#log').appendChild(d.firstChild);$('#log').scrollTop=1e9}
-function working(txt){let w=$('#work');if(!w){w=document.createElement('div');w.id='work';w.className='working';$('#log').appendChild(w)}w.textContent='… '+txt;$('#log').scrollTop=1e9}
+function add(html){col().insertAdjacentHTML('beforeend',html);scroll()}
+function addTurn(t){if(t.player&&t.player!=='(start)'&&!/^\(.*\)$/.test(t.player))add(userMsg(t.player));add(botMsg(t))}
+function working(txt){let w=$('#work');if(!w){col().insertAdjacentHTML('beforeend','<div class="msg working" id="work"><span class="spark"></span><span id="wtxt"></span></div>');w=$('#work')}$('#wtxt').textContent=txt+'…';scroll()}
 function done(){$('#work')?.remove()}
 async function refresh(){snap=await api('/api/campaign');render()}
 async function enter(){
-  snap=await api('/api/campaign');$('#log').innerHTML='';snap.history.forEach(addTurn);render();
+  snap=await api('/api/campaign');col().innerHTML='';snap.history.forEach(addTurn);render();
   if(snap.needs_opening)await run(()=>stream('/api/opening',{},ev=>ev.text&&working(ev.text)),'(start)');
   if(snap.status.pending_odds)pendingOdds();
 }
-function pendingOdds(){const d=document.createElement('div');d.className='turn';d.innerHTML='<div class="opts"><button data-opt="go — roll as shown">Go — roll as shown</button><button data-opt="Never mind, I drop that.">Drop it</button></div>';$('#log').appendChild(d)}
-async function run(fn,label){busy=true;render();try{const t=await fn();done();if(t){t.player=label;addTurn(t)}await refresh()}catch(e){done();const d=document.createElement('div');d.className='turn';d.innerHTML=`<div class="note warn">${esc(e.message)}</div>`;$('#log').appendChild(d);await refresh().catch(()=>{})}finally{busy=false;render()}}
-async function send(text){text=(text||$('#inp').value).trim();if(!text||busy)return;$('#inp').value='';
-  const you=document.createElement('div');you.className='turn';you.innerHTML=`<p class="you">${esc(text)}</p>`;$('#log').appendChild(you);
-  await run(async()=>{const t=await stream('/api/play',{text},ev=>ev.text&&working(ev.text)||ev.type==='step'&&working('referee: '+ev.tool));you.remove();return t},text);
+function pendingOdds(){add('<div class="opts"><button data-opt="go — roll as shown">Go ahead — roll as shown</button><button data-opt="Never mind, I drop that.">Never mind</button></div>')}
+async function run(fn,label){busy=true;render();try{const t=await fn();done();if(t){t.player=label;col().querySelector('.pending')?.remove();addTurn(t)}await refresh()}catch(e){done();add(`<div class="note warn">${esc(e.message)}</div>`);await refresh().catch(()=>{})}finally{busy=false;render()}}
+async function send(text){text=(text||$('#inp').value).trim();if(!text||busy)return;$('#inp').value='';grow();
+  add(`<div class="pending">${userMsg(text)}</div>`);
+  await run(async()=>{const t=await stream('/api/play',{text},ev=>ev.text&&working(ev.text)||ev.type==='step'&&working('Working: '+ev.tool.replace(/_/g,' ')));col().querySelector('.pending')?.remove();return t},text);
   if(snap?.status.pending_odds)pendingOdds()}
-$('#send').onclick=()=>send();$('#inp').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
+function grow(){const t=$('#inp');t.style.height='26px';t.style.height=Math.min(200,t.scrollHeight)+'px'}
+$('#inp').addEventListener('input',grow);
+$('#send').onclick=()=>send();
+$('#inp').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send()}};
 $('#log').onclick=async e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.opt){b.closest('.opts').remove();send(b.dataset.opt)}
   if(b.dataset.act==='retry'){await run(()=>stream('/api/save',{},ev=>ev.text&&working(ev.text)).then(s=>({narration:'',save:s})),'(save)')}
   if(b.dataset.act==='unsaved'){await api('/api/continue_unsaved',{});b.closest('.note').innerHTML='Continuing unsaved: exactly one more round, then the save comes first.'}};
 $('#bSave').onclick=()=>run(()=>stream('/api/save',{},ev=>ev.text&&working(ev.text)).then(s=>({narration:'',save:s,warnings:[]})),'(save)');
-// dialogs
-$('#bNew').onclick=async()=>{$('#nEx').innerHTML=info.examples.map(x=>`<option>${x}</option>`).join('');$('#nLang').value=info.defaults.language;$('#nProf').value=info.defaults.profile;$('#nEnc').value=info.defaults.encoding;$('#nErr').hidden=true;$('#nFill').hidden=true;delete $('#nFill').dataset.done;$('#dNew').showModal()};
+
+/* dialogs */
+$('#bNew').onclick=()=>{$('#nEx').innerHTML=info.examples.map(x=>`<option value="${esc(x)}">${esc(x.replace(/_/g,' '))}</option>`).join('');$('#nLang').value=info.defaults.language;$('#nProf').value=info.defaults.profile;$('#nEnc').value=info.defaults.encoding;$('#nErr').hidden=true;$('#nFill').hidden=true;delete $('#nFill').dataset.done;$('#dNew').showModal()};
 $('#nCancel').onclick=()=>$('#dNew').close();let tab='ex';
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));$('#tEx').hidden=tab!=='ex';$('#tPaste').hidden=tab!=='paste';$('#tGen').hidden=tab!=='gen'});
 $('#nFile').onchange=async e=>{$('#nBg').value=await e.target.files[0].text()};
@@ -178,7 +290,7 @@ $('#fNew').onsubmit=async e=>{e.preventDefault();const body={name:$('#nName').va
   $('#nGo').disabled=true;$('#nErr').hidden=false;$('#nErr').classList.remove('warn');$('#nErr').textContent='Working…';
   await stream('/api/create',body,ev=>ev.text&&($('#nErr').textContent='… '+ev.text));$('#dNew').close();await api('/api/open',{name:body.name});info=await api('/api/info');await enter()}
   catch(err){$('#nErr').classList.add('warn');$('#nErr').hidden=false;$('#nErr').textContent=err.message}finally{$('#nGo').disabled=false}};
-$('#bLoad').onclick=async()=>{info=await api('/api/info');$('#lList').innerHTML=info.campaigns.map(c=>`<div class="camp"><span><b>${esc(c.name)}</b> — ${esc(c.character)} · round ${c.round} (saved ${c.saved})</span><button data-open="${esc(c.name)}">Open</button></div>`).join('')||'<p class="note">No campaigns yet.</p>';$('#iErr').hidden=true;$('#dLoad').showModal()};
+$('#bLoad').onclick=async()=>{info=await api('/api/info');$('#lList').innerHTML=info.campaigns.map(c=>`<button class="camp" data-open="${esc(c.name)}"><span><b>${esc(c.name)}</b><small>${esc(c.character)} · round ${c.round} (saved ${c.saved})</small></span><span>Open</span></button>`).join('')||'<p class="note">No stories yet.</p>';$('#iErr').hidden=true;$('#dLoad').showModal()};
 $('#lList').onclick=async e=>{const b=e.target.closest('button[data-open]');if(!b)return;await api('/api/open',{name:b.dataset.open});info=await api('/api/info');$('#dLoad').close();await enter()};
 $('#lClose').onclick=()=>$('#dLoad').close();
 $('#iGo').onclick=async()=>{try{const s=$('#iSave').files[0],b=$('#iBg').files[0];if(!s||!b)throw new Error('choose both files');await api('/api/import',{name:$('#iName').value,save:await s.text(),background:await b.text()});info=await api('/api/info');$('#dLoad').close();await enter()}catch(err){$('#iErr').hidden=false;$('#iErr').textContent=err.message}};
@@ -186,10 +298,17 @@ $('#bSet').onclick=()=>{$('#sProf').value=snap.status.profile;$('#sLang').value=
 $('#sClose').onclick=async()=>{await api('/api/options',{profile:$('#sProf').value,language:$('#sLang').value});$('#dSet').close();await refresh()};
 const loadLog=async()=>{$('#logTxt').textContent=(await api('/api/gmlog?spoilers='+($('#spoil').checked?1:0))).text};
 $('#bLog').onclick=async()=>{await loadLog();$('#dLog').showModal()};$('#spoil').onchange=loadLog;$('#gClose').onclick=()=>$('#dLog').close();
+
+function welcome(){
+  const list=info.campaigns.map(c=>`<button class="camp" data-open="${esc(c.name)}"><span><b>${esc(c.name)}</b><small>${esc(c.character)} · round ${c.round}</small></span><span>Continue</span></button>`).join('');
+  col().innerHTML=`<div class="welcome"><h2>What shall we play?</h2><p>Start a new story, or pick up where you left off.</p>${list}<div style="margin-top:1rem"><button class="btn primary" id="wNew">New story</button></div></div>`;
+  $('#wNew').onclick=()=>$('#bNew').click();
+  col().querySelectorAll('[data-open]').forEach(b=>b.onclick=async()=>{await api('/api/open',{name:b.dataset.open});info=await api('/api/info');await enter()});
+}
 async function boot(){info=await api('/api/info');
-  if(!info.model.ready){$('#log').innerHTML=`<div class="welcome"><h2>No model loaded yet</h2><div class="help">${esc(info.model.error||'')}</div><p>See INSTALL.md. After adding a model file, <button id="rl">reload the model</button></p></div>`;$('#rl').onclick=async()=>{info=await api('/api/reload_model',{});location.reload()}}
+  if(!info.model.ready){col().innerHTML=`<div class="welcome"><h2>No model loaded yet</h2><div class="help">${esc(info.model.error||'')}</div><p>See INSTALL.md. After adding a model file: <button class="btn" id="rl">reload the model</button></p></div>`;$('#rl').onclick=async()=>{info=await api('/api/reload_model',{});location.reload()}}
   else if(info.current){await enter()}
-  else $('#log').innerHTML=`<div class="welcome"><h2>Welcome</h2><p>Start a new campaign, or load one.</p></div>`;
+  else welcome();
   render()}
 boot();
 </script>

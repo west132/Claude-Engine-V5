@@ -126,6 +126,8 @@ def state_text(camp: Campaign, tree: dict, hp_line: str, here_cap: int = 5000) -
     pl.get("condition", {}).pop("hp", None); pl.get("condition", {}).pop("mp", None)
     loc_id = rd["world_state"]["location"]
     loc = (tree.get("locations") or {}).get(loc_id)
+    if not isinstance(loc, dict):
+        loc = None                      # a location recorded as plain text still works; it just has no structure to show
     here = {}
     for k, v in (tree.get("npcs") or {}).items():
         pos = str(((v or {}).get("state") or {}).get("position", "")) if isinstance(v, dict) else ""

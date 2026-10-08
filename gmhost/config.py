@@ -35,6 +35,9 @@ class GameCfg:
 class ServerCfg:
     host: str = "127.0.0.1"
     port: int = 8765
+    tailscale: bool = False          # also listen on this machine's Tailscale address (phone / other computers on your tailnet)
+    allowed_hosts: list = field(default_factory=list)   # extra Host names accepted (besides localhost, *.ts.net, 100.64.0.0/10)
+    token: str = ""                  # optional access token; when set, open the page once with ?token=<value>
 
 
 @dataclass

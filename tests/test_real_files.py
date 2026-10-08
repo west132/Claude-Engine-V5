@@ -36,7 +36,7 @@ def test_unassigned_must_be_filled_before_round_one(cfg):
 
 
 def test_r120_save_imports_validates_and_is_repaired(cfg):
-    save = (ROOT / "tests/data/save_ashfall_hunter_R120.md").read_text(encoding="utf-8")
+    save = (ROOT / "tests/data/ashfall/save_ashfall_hunter_R120.md").read_text(encoding="utf-8")
     c = saves.import_save(cfg, "ash", save, text("ashfall_hunter"))
     assert c.rnd == 120 and c.player["item_points"] == 1 and "starting_item_points" not in c.player
     notes = " ".join(c.session["import_repairs"])
@@ -56,6 +56,6 @@ def test_r120_save_imports_validates_and_is_repaired(cfg):
 
 
 def test_mp_is_recognised_from_ability_text(cfg):
-    save = (ROOT / "tests/data/save_ashfall_hunter_R120.md").read_text(encoding="utf-8")
+    save = (ROOT / "tests/data/ashfall/save_ashfall_hunter_R120.md").read_text(encoding="utf-8")
     c = saves.import_save(cfg, "ash2", save, text("ashfall_hunter"))
     assert not [f for f in audit(c) if "MP-drawing" in f.msg]

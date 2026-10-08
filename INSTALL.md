@@ -75,3 +75,18 @@ creating a campaign if you do not want to read it by accident. The *Engine log* 
 - `examples/` ships four ready worlds (Tarnstead, Ashfall, Cyberpunk RED, Last Scion). Worlds with `[UNASSIGNED]` fields (name, age, weapon…) ask you to fill them in before play starts.
 - **Import** an older save with its BACKGROUND. The importer repairs what the engine's field rules forbid (prose inside numbers/dates, missing item points, NPCs without required fields set to `unknown`) and lists every repair; nothing is silent.
 - Audit any save: `python -m gmhost audit <save.md> <BACKGROUND.md>`.
+
+
+## Use it from your phone or another computer (Tailscale)
+The model and all game state stay on your desktop; the phone is just a screen.
+1. Install Tailscale on the desktop and on the phone/other computer, signed in to the same account. Check the phone shows the desktop as connected.
+2. On the desktop start the app so it also listens on the Tailscale address:
+   - `./start.sh serve --tailscale` (Windows: `start.bat serve --tailscale`), or set `tailscale = true` under `[server]` in `config.toml`.
+   - The console prints the addresses, e.g. `http://100.101.102.103:8765/`.
+3. On the phone open that address in the browser (or `http://<desktop-name>:8765/` if MagicDNS is on). Add it to the home screen for an app-like icon.
+
+Notes
+- Traffic between your devices is already encrypted by Tailscale. The app only accepts connections addressed to localhost, a Tailscale address (100.64.0.0/10) or a `*.ts.net` name; other devices on your Wi-Fi cannot reach it.
+- **Anyone on your tailnet can open it** (including devices you have shared). To require a password-like token, set `token = "something-long"` under `[server]`, then open `http://<address>:8765/?token=something-long` once on each device (a cookie remembers it).
+- Prefer HTTPS? Run `tailscale serve --bg 8765` on the desktop and open the `https://<desktop-name>.<tailnet>.ts.net` address it prints; the app still listens only on localhost.
+- The desktop must stay on and awake while you play, and one story is played at a time.

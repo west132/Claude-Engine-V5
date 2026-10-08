@@ -8,4 +8,4 @@ download once and drop in `models/`) judges, narrates and checks, following the 
 - **Try without a model:** `python -m gmhost serve --demo` · **verify install:** `python -m gmhost check`
 - **Tests:** `pip install pytest && pytest`
 
-`engine/` holds the five original files unchanged. `examples/the_salt_road/` is a sample BACKGROUND.
+`engine/` holds the five original files unchanged. `examples/` holds four ready worlds; `tests/data/ashfall/` is a real 120-round campaign used as the regression test.

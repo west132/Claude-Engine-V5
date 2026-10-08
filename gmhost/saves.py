@@ -156,7 +156,15 @@ def import_save(cfg, name: str, save_text: str, background_text: str) -> Campaig
         shutil.rmtree(c.dir)
         raise CampaignError("the save does not validate: " + str({k: v[k] for k in v if k in ("decode", "capsule", "lint", "background_mismatch", "delta_note")}))
     c.bg = tree
-    readable.setdefault("index", {})
+    # older saves omit fields the template now has: default them the way the engine does (profile full, English)
+    readable.setdefault("language", "en")
+    readable.setdefault("profile", "full")
+    readable.setdefault("enabled_modules", {**{m: False for m in ("numeric_level_xp", "equipment_power_tiers", "bounded_scenario_endings", "flexible_item_entitlement")},
+                                            **{k: bool(v) for k, v in (tree.get("enabled_modules") or {}).items()}})
+    readable.setdefault("narrative_theme", tree.get("narrative_theme") or {"initial": {}, "current": {}})
+    readable["index"] = {**{s: {} for s in ("npcs", "factions", "locations", "quests", "development_threads", "trackers",
+                                          "rights_obligations", "active_world_pressures")}, "pending_payoffs": [],
+                         **(readable.get("index") or {})}
     readable["round"] = {"last_completed_round": n, "saved_completed_round": n}
     c.readable, c.closed_readable = readable, copy.deepcopy(readable)
     c.session = default_session()

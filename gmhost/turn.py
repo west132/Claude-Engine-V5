@@ -153,12 +153,15 @@ class Game:
             errs = sch.validate(args, tool.schema)
             if errs:
                 res = "REFUSED: " + "; ".join(errs[:6])
+                if name in ("check", "ask"): ctx.check_refused = True
             else:
                 try:
                     res = tool.fn(ctx, args)
                     bad = 0
+                    if name in ("check", "ask", "resume_check"): ctx.check_refused = False
                 except ToolError as e:
                     res = f"REFUSED: {e}"
+                    if name in ("check", "ask", "resume_check"): ctx.check_refused = True
                 except Exception as e:                       # a bug must not corrupt the turn
                     raise TurnError(f"tool {name} failed: {type(e).__name__}: {e}")
             steps.append({"tool": name, "result": str(res)[:300]})

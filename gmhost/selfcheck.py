@@ -52,7 +52,7 @@ def run(cfg: Config, load_model: bool = False) -> int:
         shutil.copytree(cfg.root / "examples", tmp / "examples")
         c2 = Config(root=tmp); c2.model.backend = "mock"
         app = App(c2, DemoBackend())
-        ex = next((e for e in app.examples() if e['id'] == 'the_salt_road'), app.examples()[0])
+        ex = next((e for e in app.examples() if e['id'] == 'ashfall_hunter'), app.examples()[0])
         app.create("selftest", ex["text"])
         app.opening()
         last = None
