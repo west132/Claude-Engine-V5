@@ -13,15 +13,27 @@ _GUIDE = [
     r"\b(?:what are )?my options\b", r"\bany (?:hints?|ideas?|leads?|suggestions?)\b", r"\b(?:i'?m|i am) (?:stuck|lost)\b", r"\b(?:give me|need|want) (?:a )?(?:hint|options|suggestions?|ideas?)\b",
     r"\bwhere (?:do|should) i (?:go|start)\b",
 ]
+_RECAP = [
+    r"发生(?:了)?什么", r"发生过什么", r"(?:之前|刚才|前面|上次|前情|目前|现在)(?:的)?(?:事|情况|剧情|进展)", r"回顾", r"总结(?:一下)?", r"前情(?:提要)?",
+    r"(?:我们|我)(?:都)?(?:做|干)了(?:些)?什么", r"到哪(?:了|里了)", r"什么情况", r"(?:提醒|告诉)我",
+    r"\bwhat (?:has |have |had )?(?:happened|i done|i been doing|did i do)\b", r"\bwhat(?:'s| is) (?:going on|the situation|happening)\b", r"\brecap\b",
+    r"\bsummar(?:y|ise|ize)\b", r"\bcatch me up\b", r"\bwhere (?:are we|was i|am i at)\b", r"\bremind me\b", r"\bso far\b",
+]
 _CONT = r"^(?:继续(?:吧|下去|游戏)?|接着(?:来|走)?|然后(?:呢)?|往下(?:走|继续)?|下一步|go on|continue|carry on|next|then what|and then|proceed|keep going)[.!。！？?\s]*$"
 _RE_GUIDE = re.compile("|".join(_GUIDE), re.I)
 _RE_CONT = re.compile(_CONT, re.I)
+_RE_RECAP = re.compile("|".join(_RECAP), re.I)
 _CLOSED = ("closed", "done", "paid", "complete", "fulfilled", "ended", "void", "expired", "revoked", "cancel", "resolved", "settled", "failed", "abandon")
 
 
 def is_guidance(text: str) -> bool:
     t = (text or "").strip()
     return 0 < len(t) <= 60 and bool(_RE_GUIDE.search(t))
+
+
+def is_recap(text: str) -> bool:
+    t = (text or "").strip()
+    return 0 < len(t) <= 80 and bool(_RE_RECAP.search(t))
 
 
 def is_bare_continue(text: str) -> bool:
@@ -117,3 +129,29 @@ def menu(camp, tree: dict | None = None) -> dict:
                 "or type anything else you want to do.")
         question = "What do you want to do?"
     return {"narration": text, "decision": {"question": question, "options": options(camp, tree)}}
+
+
+_DATE = re.compile(r"(\d{4}-\d{2}-\d{2})(?: (\d{2}:\d{2}))?")
+
+
+def recap_facts(camp, tree: dict | None = None, limit: int = 12) -> list[str]:
+    """What the player already knows about recent events, from the places the save keeps it: the turns just played (live play),
+    dated quest and obligation outcomes, and the facts the character has learned. Nothing from hidden records, plans or truths."""
+    tree = tree if tree is not None else camp.tree()
+    out = []
+    for h in (camp.session.get("history") or [])[-3:]:
+        if h.get("narration"):
+            out.append(f"Just played — you said: {h.get('player')}. What happened: {h['narration'][:500]}")
+    dated = []
+    for section, label in (("quests", "quest"), ("rights_obligations", "agreement")):
+        for rid, v in (tree.get(section) or {}).items():
+            st = v.get("status") if isinstance(v, dict) and "status" in v else ((v.get("state") or {}).get("status") if isinstance(v, dict) else None)
+            m = _DATE.search(_text(st or ""))
+            if m and not _text(st).lstrip().startswith("{"):
+                name = (v.get("objective") if isinstance(v, dict) and v.get("objective") else rid.replace("_", " "))
+                dated.append((m.group(1) + " " + (m.group(2) or "00:00"), f"{m.group(1)}{' ' + m.group(2) if m.group(2) else ''} — {label} ({_text(name)[:70]}): {_text(st)[:150]}"))
+    out += [t for _, t in sorted(dated)[-8:]]
+    facts = ((camp.player.get("knowledge") or {}).get("facts") or {})
+    if isinstance(facts, dict):
+        out += [f"You learned: {_text(v)[:220]}" for v in list(facts.values())[-4:]]
+    return out[-limit:]

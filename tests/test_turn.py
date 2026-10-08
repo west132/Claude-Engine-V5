@@ -258,3 +258,21 @@ def test_encoding_can_be_switched_mid_campaign_and_saves_stay_valid(cfg, camp):
         app.set_options(encoding="rot26")
     r = saves.build_save(camp)
     assert r["round"] == camp.rnd
+
+
+def test_recap_question_is_answered_from_what_the_player_knows(cfg, r120):
+    from gmhost import leads
+    facts = "\n".join(leads.recap_facts(r120))
+    assert "calloway_lockup" in facts or "lock-up" in facts and "2026-10-31" in facts
+    for secret in ("loosen one Southport outfall mesh panel", "Surveyor", "keep quiet for Rusk"):      # plans and truths are never recapped
+        assert secret not in facts
+    b = scripted("You opened Frank Calloway's lock-up with Irene and the job closed.", OK)
+    res = Game(cfg, b).play(r120, "120发生了什么，我现在要干什么")
+    assert "lock-up" in res.narration and res.decision and len(res.decision["options"]) >= 2
+    assert res.round is None and not res.lines
+
+
+def test_recap_alone_has_no_menu_and_no_round(cfg, r120):
+    b = scripted("A short recap.", OK)
+    res = Game(cfg, b).play(r120, "what happened so far?")
+    assert res.decision is None and res.round is None and "recap" in res.narration.lower()

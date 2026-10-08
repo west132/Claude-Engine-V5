@@ -178,7 +178,7 @@ class Game:
         raise TurnError("the referee did not close the turn in time")
 
     # ---- narration + audit -----------------------------------------------------------------
-    def _narrate(self, camp, ctx, text, closed, on_event):
+    def _narrate(self, camp, ctx, text, closed, on_event, recap=False):
         lite = camp.profile == "lite"
         visible, dialogue = closed["visible"], closed.get("dialogue") or []
         results = list(ctx.lines) + list(ctx.status)
@@ -189,7 +189,7 @@ class Game:
             on_event({"type": "phase", "text": "narrating" if attempt == 0 else f"rewriting (attempt {attempt + 1})"})
             prose = self._chat([{"role": "system", "content": self.narr_sys},
                                 {"role": "user", "content": prompts.narrator_user(camp, text, visible, dialogue, results,
-                                                                                  ctx.learned, decision, prev, lite, issues)}],
+                                                                                  ctx.learned, decision, prev, lite, issues, recap)}],
                                temperature=0.8, max_tokens=420 if lite else 1100).strip()
             det = checks.check_prose(prose, camp.language, lite, ctx.secret_terms, bool(decision))
             llm_issues = []
@@ -230,8 +230,8 @@ class Game:
         if not opening and camp.rnd >= camp.T and camp.session.get("deferral") != "one_round":
             return TurnResult(blocked="save_due", narration="A checkpoint save is due and could not be produced. "
                               "Retry the save, or choose “continue unsaved” (one more round only).")
-        if not opening and leads.needs_guidance(camp, text):
-            return self._guidance(camp, text)
+        if not opening and (leads.is_recap(text) or leads.needs_guidance(camp, text)):
+            return self._info_turn(camp, text, on_event)
         snap = camp.snapshot()
         ctx = TurnCtx(camp, text, engine=self.engine)
         ctx.pending_at_start = copy.deepcopy(camp.session.get("pending_odds"))
@@ -250,12 +250,27 @@ class Game:
             raise
         return self._commit(camp, ctx, text, closed, prose, warnings, steps, on_event, opening)
 
-    def _guidance(self, camp: Campaign, text: str) -> TurnResult:
-        """"What should I do?" and a bare "continue" with nothing in progress (engine §13.6 STUCK). Answered in code from what the
-        player knows: no model call, no round, nothing invented, and the character does nothing the player did not choose (§7)."""
-        m = leads.menu(camp)
-        res = TurnResult(narration=m["narration"], decision=m["decision"])
-        camp.session["history"].append({"player": text, "narration": m["narration"], "round": None, "header": None, "lines": [], "status": []})
+    def _info_turn(self, camp: Campaign, text: str, on_event) -> TurnResult:
+        """Questions about the story so far and "what should I do" (engine §13.6 STUCK; RETRIEVAL never advances state). The recap
+        is written from facts the player already knows; the menu is built in code from recorded lines. No round, no roll, no commit,
+        and the character does nothing the player did not choose (§7)."""
+        want_recap, want_menu = leads.is_recap(text), leads.needs_guidance(camp, text)
+        zh = camp.language == "zh_hans"
+        warnings, parts, decision = [], [], None
+        if want_recap:
+            facts = leads.recap_facts(camp)
+            if facts:
+                ctx = TurnCtx(camp, text, engine=self.engine)
+                prose, warnings = self._narrate(camp, ctx, text, {"visible": facts, "dialogue": []}, on_event, recap=True)
+                parts.append(prose)
+            else:
+                parts.append("目前还没有可以回顾的记录。" if zh else "There is nothing recorded to recap yet.")
+        if want_menu or not want_recap:
+            m = leads.menu(camp)
+            parts.append(m["narration"]); decision = m["decision"]
+        narration = "\n\n".join(parts)
+        res = TurnResult(narration=narration, decision=decision, warnings=warnings)
+        camp.session["history"].append({"player": text, "narration": narration, "round": None, "header": None, "lines": [], "status": []})
         camp.write_journal()
         return res
 
