@@ -64,11 +64,14 @@ The engine was written for a chat page, where one AI does everything. These are 
 - Floor rule: powers are costed by their own tier, not by the player's level, and the engine must guarantee that a low-tier power stays castable by a higher-level player (for example: any caster can always afford at least a few uses of a power at or below their tier).
 - `draws_mp` should list skill ids so there is no guessing.
 
-**2. Essential NPCs and death (borrowed from Skyrim).**
-- Main NPCs are marked essential until their mission ends (for example `essential_until: <quest id>` in the BACKGROUND). While the mission is open, an essential NPC at 0 HP is down, captured, fleeing or yielding, never dead.
-- When the mission ends the mark is removed, and from then on all NPCs follow the same rule: at 0 HP they are dying and are killed unless someone helps at once.
-- This is a change from the current engine, where 0 HP is "down" and an untreated actor gets a survival roll after an hour (§10.5), and from the README's "nobody has plot armour". It should be an opt-in world setting so existing worlds behave as before. The player is not essential.
-- It also settles injuries on incidental actors: they are ordinary NPCs, so the normal death rule applies and no record is needed.
+**2. Death at 0 HP (borrowed in part from Skyrim, then revised).** Three cases, in order of who caused the harm:
+- **Anyone the player character tries to kill or attack has no buffer.** No protection mark, however important. Choices have consequences, even if the NPC's mission fails (the engine tracks that as a failed or blocked quest).
+- **Other cases at 0 HP, for an important NPC** (hurt by someone else, a hazard, an accident): the game rolls once, yes or no.
+  - **No:** the NPC survives, down and out for now.
+  - **Yes:** the NPC is dying and waits for help for a short, fixed time, then dies if nobody helps. The player and others get a real chance to act, because it is not logical for an important character to die with no choices.
+- **Everyone else at 0 HP is dying** and is killed unless someone helps at once.
+- **Notes for building it.** The roll must be made by the helper and printed like every other roll (for example with `ask`), never decided by the AI. "Short time" needs a number (the engine's current rule is one hour, which is too long for this). "Important NPC" means one recorded in the BACKGROUND as main; the player's own character is not covered by the yes/no roll. The README line "Nobody has plot armour" stays true for attacks by the player. Make it an opt-in world setting so existing worlds behave as before.
+- It also settles injuries on incidental actors: they are ordinary NPCs, so the dying rule applies and no record is needed.
 
 **3. Saves.**
 - Keep the readable text save and capsule as the export and exchange format, because it is what chat saves and your 120-round campaign use.
