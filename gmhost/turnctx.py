@@ -31,6 +31,7 @@ class TurnCtx:
     pending_at_start: object = None
     check_refused: bool = False         # a roll was attempted and refused; not silently dropped
     close_warned: bool = False
+    guidance: bool = False              # a 'what should I do' turn: must end in a menu of known leads, no round
 
     # ---- ledger views including this turn's uncommitted entries --------------------
     def preview(self) -> Block:

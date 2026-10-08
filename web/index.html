@@ -187,6 +187,7 @@ dialog textarea{height:9rem;font:12.5px var(--mono)}
 <dialog id="dSet"><h2>Settings</h2>
   <label>Reply length</label><select id="sProf"><option value="full">full</option><option value="lite">lite</option></select>
   <label>Language</label><select id="sLang"></select>
+  <label>Hidden state in saves</label><select id="sEnc"><option value="plain">plain (engine default)</option><option value="b64">base64 (spoiler-safe)</option><option value="rot13">rot13</option></select>
   <p class="note">Rules, dice and state never change with these settings — only the length and language of the prose.</p>
   <p style="font-size:.8rem;color:var(--dim);margin:.2rem 0">© 2026 West132.WL. All rights reserved.</p>
   <div class="actions" style="justify-content:space-between;align-items:center"><span style="font-size:.88rem"><a id="dlSave" href="#">download newest save</a> · <a id="dlBg" href="/api/download/background">download BACKGROUND</a></span><button id="sClose" class="btn primary">Done</button></div></dialog>
@@ -331,8 +332,8 @@ $('#bLoad').onclick=async()=>{info=await api('/api/info');$('#lList').innerHTML=
 $('#lList').onclick=async e=>{const b=e.target.closest('button[data-open]');if(!b)return;await api('/api/open',{name:b.dataset.open});info=await api('/api/info');$('#dLoad').close();await enter()};
 $('#lClose').onclick=()=>$('#dLoad').close();
 $('#iGo').onclick=async()=>{try{const s=$('#iSave').files[0],b=$('#iBg').files[0];if(!s||!b)throw new Error('choose both files');await api('/api/import',{name:$('#iName').value,save:await s.text(),background:await b.text()});info=await api('/api/info');$('#dLoad').close();await enter()}catch(err){$('#iErr').hidden=false;$('#iErr').textContent=err.message}};
-$('#bSet').onclick=()=>{$('#sProf').value=snap.status.profile;$('#sLang').value=snap.status.language;const n=snap.saves.at(-1);$('#dlSave').href=n?'/api/download/'+n:'#';$('#dSet').showModal()};
-$('#sClose').onclick=async()=>{const l=$('#sLang').value;await api('/api/options',{profile:$('#sProf').value,language:l});$('#dSet').close();await setLang(l,false);await refresh()};
+$('#bSet').onclick=()=>{$('#sProf').value=snap.status.profile;$('#sLang').value=snap.status.language;$('#sEnc').value=snap.status.encoding||'plain';const n=snap.saves.at(-1);$('#dlSave').href=n?'/api/download/'+n:'#';$('#dSet').showModal()};
+$('#sClose').onclick=async()=>{const l=$('#sLang').value;await api('/api/options',{profile:$('#sProf').value,language:l,encoding:$('#sEnc').value});$('#dSet').close();await setLang(l,false);await refresh()};
 const loadLog=async()=>{$('#logTxt').textContent=(await api('/api/gmlog?spoilers='+($('#spoil').checked?1:0))).text};
 $('#bLog').onclick=async()=>{await loadLog();$('#dLog').showModal()};$('#spoil').onchange=loadLog;$('#gClose').onclick=()=>$('#dLog').close();
 

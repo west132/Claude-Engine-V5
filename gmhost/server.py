@@ -208,7 +208,7 @@ def make_handler(app: App):
             if path == "/api/play": return self._stream(lambda emit: app.play(b.get("text", ""), emit))
             if path == "/api/save": return self._stream(lambda emit: app.save(emit))
             if path == "/api/continue_unsaved": return self._guard(lambda: (app.continue_unsaved(), self._json({"ok": True})))
-            if path == "/api/options": return self._guard(lambda: (app.set_options(b.get("profile"), b.get("language")), self._json(app.snapshot())))
+            if path == "/api/options": return self._guard(lambda: (app.set_options(b.get("profile"), b.get("language"), b.get("encoding")), self._json(app.snapshot())))
             if path == "/api/reload_model": return self._guard(lambda: (app.load_model(), self._json(app.info())))
             self._json({"error": "not found"}, 404)
 

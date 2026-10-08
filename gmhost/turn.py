@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field, asdict
 from typing import Callable
 
-from . import checks, helper, i18n, prompts, saves, schema as sch, timeutil
+from . import checks, helper, i18n, leads, prompts, saves, schema as sch, timeutil
 from .campaign import Campaign, Block, Entry
 from .cards import Engine
 from .config import Config
@@ -98,13 +98,16 @@ class Game:
             raise TurnError(str(e))
 
     def _triage(self, camp, ctx, text) -> dict:
+        if leads.needs_guidance(camp, text):                  # recognised in code: a small model must not improvise these
+            ctx.guidance = True
+            return {"triage": "GUIDANCE", "intent": "the player asks what they can do next", "rows": []}
         brief = prompts.state_brief(camp, hp_line(ctx))
         raw = self._chat([{"role": "system", "content": self.system},
                           {"role": "user", "content": prompts.triage_user(self.engine, camp, text, brief)}],
                          schema=prompts.TRIAGE_SCHEMA, temperature=0.1, max_tokens=300)
         try:
             t = extract_json(raw)
-            assert t.get("triage") in ("FAST", "LOOP", "RETRIEVAL", "CONTINUATION")
+            assert t.get("triage") in ("FAST", "LOOP", "RETRIEVAL", "CONTINUATION")      # GUIDANCE is decided in code only
             t["rows"] = [r for r in t.get("rows", []) if any(r == x.id for x in self.engine.routes)]
         except Exception:
             t = {"triage": "LOOP", "intent": text, "rows": ["r01", "r02"]}
@@ -137,8 +140,12 @@ class Game:
     def _referee(self, camp, ctx, text, triage, on_event, opening=False):
         budget = self.backend.n_ctx - self.cfg.model.max_new_tokens - est_tokens(self.system) - 2500
         cards, dropped = self._cards(camp, triage, int(budget * 0.5))
+        extra = ""
+        if triage.get("triage") == "GUIDANCE":
+            cards = [self.engine.card_by_ref("13.6")] + cards
+            extra = leads.guidance_directive(camp, text, ctx.tree())
         for c in cards: ctx.opened_cards.add(c.ref)
-        user = prompts.turn_user(camp, ctx.tree(), text, triage, cards, hp_line(ctx), self.cfg.game.history_turns, opening)
+        user = prompts.turn_user(camp, ctx.tree(), text, triage, cards, hp_line(ctx), self.cfg.game.history_turns, opening, extra)
         msgs = [{"role": "system", "content": self.system}, {"role": "user", "content": user}]
         steps, bad = [], 0
         for _ in range(self.cfg.game.max_referee_steps):
@@ -189,7 +196,7 @@ class Game:
             on_event({"type": "phase", "text": "narrating" if attempt == 0 else f"rewriting (attempt {attempt + 1})"})
             prose = self._chat([{"role": "system", "content": self.narr_sys},
                                 {"role": "user", "content": prompts.narrator_user(camp, text, visible, dialogue, results,
-                                                                                  ctx.learned, decision, prev, lite, issues)}],
+                                                                                  ctx.learned, decision, prev, lite, issues, ctx.guidance)}],
                                temperature=0.8, max_tokens=420 if lite else 1100).strip()
             det = checks.check_prose(prose, camp.language, lite, ctx.secret_terms, bool(decision))
             llm_issues = []
