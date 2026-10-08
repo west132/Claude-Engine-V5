@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """`python -m gmhost check` — verifies an installation without needing a model."""
 from __future__ import annotations
 import shutil

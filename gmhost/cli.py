@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Terminal front end (same engine, no browser)."""
 from __future__ import annotations
 from .app import App

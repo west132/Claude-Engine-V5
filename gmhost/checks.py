@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Deterministic prose checks (no model involved)."""
 from __future__ import annotations
 import re

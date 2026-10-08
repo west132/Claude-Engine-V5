@@ -3,6 +3,19 @@
 You need: a computer with **Python 3.11+**, a **model file** (downloaded once), and about 12–40 GB of free disk/RAM depending on the model.
 After the one-time setup the game runs fully offline.
 
+## Do I need administrator rights?
+**No.** Nothing is installed into Windows/macOS/Linux itself. Everything lives in this folder: the program, your stories and saves, the model file, and a private Python environment (`.venv`) that `start.sh` / `start.bat` create on first run. To remove it all, delete the folder.
+
+The one condition: **Python 3.11 or newer must already be on the computer** (the launcher uses it). If it is not, install Python for the current user only (the python.org installer has an “Install for me only / no admin” option), or ask whoever manages the machine. After that, the first run downloads two small packages into `.venv` (needs internet once), with no admin step. If `llama-cpp-python` has no ready-made package for your system it needs a C++ compiler, which usually does need setup — in that case use Option B below (Ollama or LM Studio, which normally install per-user).
+
+## First run: the setup assistant
+The first time you start the program it **checks your computer first** (system, RAM, graphics card, disk, Python, the packages, any model file or running Ollama / LM Studio), then goes through what is missing **one item at a time and asks you**:
+- *Install it for me* — the program runs the install (only things that need no admin rights), or
+- *I'll do it myself* — it shows the exact command to copy, or
+- *Skip for now.*
+
+Things that would change your system (installing Python, a C++ compiler, GPU drivers) are never done for you; you get instructions instead. You can run it again at any time: `python -m gmhost setup` (add `--check` to only look, `--auto` to accept every no-admin install). The same screen is in the app under **⋯ → Computer check & setup**, where you can also paste a direct `.gguf` download link and let the program fetch the model (it resumes interrupted downloads and prints the file's SHA-256 so you can compare it with the one on the download page).
+
 ## 1. Get the program
 Download or clone this repository. Everything (engine files, app, web page) is inside it.
 
@@ -12,11 +25,18 @@ Download **one** instruction-tuned model in **GGUF** format and place the file i
 What the model must be good at: following long rules, producing valid JSON, writing prose in your game language.
 The engine rules alone take ~12k tokens of context, so pick a model with a context window of **32k or more**.
 
-| Your machine | Suggested size (GGUF, Q4_K_M or better) |
-|---|---|
-| 8 GB VRAM or 16 GB RAM | 7–9B instruct models (works, weaker rule-following) |
-| 16–24 GB VRAM or 32 GB RAM | 14–32B instruct models (recommended) |
-| 48 GB+ | 70B-class instruct models (best) |
+| Your computer | Recommended | One tier lower (faster, a little weaker) |
+|---|---|---|
+| 8 GB RAM, no GPU | 3B (testing only) | — (too little memory for more) |
+| 16 GB RAM, no GPU | 7B | 3B |
+| 32 GB RAM, no GPU | 14B | 7B |
+| 64 GB RAM, no GPU | 32B | 14B |
+| NVIDIA 8–16 GB VRAM | 7B | 3B |
+| NVIDIA 24 GB VRAM | 14B | 7B |
+| NVIDIA 48 GB VRAM | 32B | 14B |
+| Apple Silicon 16 GB / 32 GB / 64 GB | 7B / 14B / 32B | 3B / 7B / 14B |
+
+"B" is billions of parameters; use an instruct model's `Q4_K_M` file with a 32k+ context. The numbers assume the full 32k context (the rules alone take ~12k tokens). **The program works this out for you**: `python -m gmhost setup` (or *Computer check & setup* in the app's menu) reads your RAM, GPU and disk and prints the recommended size and the one below it. Without a GPU every turn takes minutes; a 3B model is only good for checking that things run (in my real test it broke the engine's rules).
 
 Look for GGUF files on Hugging Face (search “<model name> GGUF”). I could not download or run any model in the environment this
 software was built in, so no specific model has been validated by me — run `python -m gmhost check --load` (step 4) with yours.
@@ -90,3 +110,8 @@ Notes
 - **Anyone on your tailnet can open it** (including devices you have shared). To require a password-like token, set `token = "something-long"` under `[server]`, then open `http://<address>:8765/?token=something-long` once on each device (a cookie remembers it).
 - Prefer HTTPS? Run `tailscale serve --bg 8765` on the desktop and open the `https://<desktop-name>.<tailnet>.ts.net` address it prints; the app still listens only on localhost.
 - The desktop must stay on and awake while you play, and one story is played at a time.
+
+
+## Language
+
+The first time you open the app it asks for a language: **English** or **简体中文**. Your last choice is remembered in `prefs.json` (delete it to be asked again) and is preselected for new stories. You can change it any time in *Settings*. The command-line setup assistant (`python -m gmhost setup`) is English only.

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 from gmhost.campaign import Campaign, Entry
 
 

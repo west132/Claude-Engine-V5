@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Campaign = BACKGROUND + readable state (Part A) + GM-Δ chain + journal.
 
 Authority follows engine §4: the Ledger is `readable` (player block, time, place,

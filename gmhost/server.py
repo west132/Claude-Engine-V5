@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Local web server (stdlib only). Binds to 127.0.0.1; long operations stream progress as SSE."""
 from __future__ import annotations
 import hmac
@@ -129,6 +130,13 @@ def make_handler(app: App):
             if path == "/api/info": return self._guard(lambda: self._json({**app.info(), "examples": [e["id"] for e in app.examples()]}))
             if path == "/api/example":
                 return self._guard(lambda: self._json(next(e for e in app.examples() if e["id"] == q.get("id", [""])[0])))
+            if path == "/api/setup":
+                def st():
+                    from . import sysinfo
+                    info = sysinfo.gather(app.cfg.root)
+                    self._json({"info": info, "problems": sysinfo.problems(info), "recommend": sysinfo.recommend(info),
+                                "local": self.client_address[0] in ("127.0.0.1", "::1")})
+                return self._guard(st)
             if path == "/api/campaign": return self._guard(lambda: self._json(app.snapshot()))
             if path == "/api/gmlog": return self._guard(lambda: self._json({"text": app.gm_log(q.get("spoilers", ["0"])[0] == "1")}))
             if path.startswith("/api/download/"):
@@ -163,6 +171,24 @@ def make_handler(app: App):
                 b = self._body()
             except Exception as e:
                 return self._json({"error": f"bad request: {e}"}, 400)
+            if path in ("/api/setup/install", "/api/setup/download"):
+                if self.client_address[0] not in ("127.0.0.1", "::1"):
+                    return self._json({"error": "installing and downloading can only be started on the computer that runs the program"}, 403)
+                from . import setup_wizard
+                def work(emit):
+                    say = lambda t: emit({"type": "log", "text": t})
+                    if path.endswith("install"):
+                        ok = setup_wizard.pip_install(b.get("item", ""), say)
+                        if not ok: raise ValueError("the install did not finish (see the messages above)")
+                    else:
+                        url = str(b.get("url", ""))
+                        if not url.lower().startswith("https://"): raise ValueError("use an https:// link")
+                        setup_wizard.download(url, app.cfg.models_dir, say, b.get("sha256"))
+                    app.load_model()
+                    return {"model_ready": app.game is not None, "error": app.model_error}
+                return self._stream(work)
+            if path == "/api/prefs":
+                return self._guard(lambda: self._json(app.set_language(b.get("language", ""))))
             if path == "/api/unassigned":
                 return self._guard(lambda: self._json({"fields": app.unassigned(b["background"])}))
             if path == "/api/create":
@@ -193,6 +219,7 @@ def serve(cfg: Config, port: int | None = None, open_browser: bool = True, app: 
           tailscale: bool | None = None, host: str | None = None):
     app = app or App(cfg)
     port = port or cfg.server.port
+    print("Storyteller — Copyright (c) 2026 West132.WL. All rights reserved.")
     hosts = [host or cfg.server.host]
     if tailscale or (tailscale is None and cfg.server.tailscale):
         ts = tailscale_ip()

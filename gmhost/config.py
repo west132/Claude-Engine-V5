@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Settings. Everything has a default so the app starts with no config file."""
 from __future__ import annotations
 import os

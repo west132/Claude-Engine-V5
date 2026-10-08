@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """One player turn, start to finish (engine §2 loop), with code in charge of the process.
 
 triage → LOAD → referee tool loop (model judges, host computes) → narrator → checker →
@@ -11,7 +12,7 @@ import re
 from dataclasses import dataclass, field, asdict
 from typing import Callable
 
-from . import checks, helper, prompts, saves, schema as sch, timeutil
+from . import checks, helper, i18n, prompts, saves, schema as sch, timeutil
 from .campaign import Campaign, Block, Entry
 from .cards import Engine
 from .config import Config
@@ -55,11 +56,15 @@ def hp_line(ctx_or_camp) -> str:
 
 
 def header(camp: Campaign, n: int) -> str:
-    t = camp.time
+    t, lang = camp.time, camp.language
     place = camp.location_name()
+    if i18n.is_zh(lang):
+        place = i18n.glossary_form(camp.glossary(), str(camp.readable["world_state"]["location"]), place)
+    w = i18n.header_words(lang)
+    when = timeutil.date_label(t, lang)
     if camp.profile == "lite":
-        return f"R {n} | {timeutil.date_label(t)} {timeutil.clock_label(t)} | {place} | save R{camp.T}"
-    return f"ROUND {n} | {timeutil.date_label(t)} | {timeutil.clock_label(t)} | {place} | saved R{camp.S} · save R{camp.T}"
+        return f"R {n} | {when} {timeutil.clock_label(t)} | {place} | {w['save']} R{camp.T}"
+    return f"{w['round'].format(n=n)} | {when} | {timeutil.clock_label(t)} | {place} | {w['saved']} R{camp.S} · {w['save']} R{camp.T}"
 
 
 def gm_view(block: Block) -> str:
@@ -247,7 +252,8 @@ class Game:
         opened = bool(closed["opened_round"]) and not opening
         if ctx.pending_at_start and camp.session.get("pending_odds") == ctx.pending_at_start and not ctx.stopped_for_odds:
             camp.session["pending_odds"] = None             # the player changed or dropped the shown roll
-        res = TurnResult(lines=list(ctx.lines), status=list(ctx.status), narration=prose, decision=closed.get("decision"),
+        lang = camp.language
+        res = TurnResult(lines=[i18n.localize_line(l, lang) for l in ctx.lines], status=[i18n.localize_status(x, lang) for x in ctx.status], narration=prose, decision=closed.get("decision"),
                          warnings=warnings, steps=steps)
         for L in closed.get("player_learned") or []:
             camp.readable["index"].setdefault(L["section"], {})[L["id"]] = L["line"]
