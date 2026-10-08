@@ -221,7 +221,7 @@ class Campaign:
     # ---- creation / opening -----------------------------------------------------------
     @classmethod
     def create(cls, cfg: Config, name: str, background_text: str, language: str | None = None,
-               profile: str | None = None, encoding: str | None = None) -> "Campaign":
+               profile: str | None = None, encoding: str | None = None, fill: dict | None = None) -> "Campaign":
         if not re.fullmatch(r"[A-Za-z0-9_\-]{1,40}", name):
             raise CampaignError("campaign name: letters, digits, _ and - only (max 40)")
         c = cls(cfg, name)
@@ -229,6 +229,9 @@ class Campaign:
             raise CampaignError(f"campaign {name!r} already exists")
         helper.load(cfg.engine_dir)
         tree = normalize_background(background_text)
+        from . import bgen
+        if fill is not None or bgen.unassigned(tree):
+            bgen.apply_fill(tree, fill or {})            # the player sets every [UNASSIGNED] before Round 1
         c.work.mkdir(parents=True); c.saves.mkdir()
         (c.dir / "background.source.md").write_text(background_text, encoding="utf-8")
         write_background(c.bg_path, tree)

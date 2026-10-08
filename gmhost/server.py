@@ -112,10 +112,12 @@ def make_handler(app: App):
                 b = self._body()
             except Exception as e:
                 return self._json({"error": f"bad request: {e}"}, 400)
+            if path == "/api/unassigned":
+                return self._guard(lambda: self._json({"fields": app.unassigned(b["background"])}))
             if path == "/api/create":
                 def go(emit):
                     if not _NAME.match(b.get("name", "")): raise CampaignError("campaign name: letters, digits, _ and -")
-                    app.create(b["name"], b.get("background"), b.get("premise"), b.get("language"), b.get("profile"), b.get("encoding"), emit)
+                    app.create(b["name"], b.get("background"), b.get("premise"), b.get("language"), b.get("profile"), b.get("encoding"), emit, b.get("fill"))
                     return {"name": b["name"]}
                 return self._stream(go)
             if path == "/api/open":

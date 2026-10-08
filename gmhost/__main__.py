@@ -14,6 +14,8 @@ def main():
     c = sub.add_parser("check", help="verify the installation (python, packages, engine files, model)")
     c.add_argument("--demo", action="store_true")
     c.add_argument("--load", action="store_true", help="also load the model and test schema-constrained output")
+    au = sub.add_parser("audit", help="audit a save against its BACKGROUND (engine rules beyond validate)")
+    au.add_argument("save"); au.add_argument("background")
     p = sub.add_parser("play", help="play in the terminal")
     p.add_argument("campaign"); p.add_argument("--demo", action="store_true")
     a = ap.parse_args()
@@ -26,6 +28,18 @@ def main():
     elif a.cmd == "check":
         from .selfcheck import run
         sys.exit(run(cfg, load_model=a.load))
+    elif a.cmd == "audit":
+        import shutil, tempfile
+        from pathlib import Path
+        from . import helper, saves
+        from .audit import audit, report
+        from .config import Config
+        helper.load(cfg.engine_dir)
+        tmp = Path(tempfile.mkdtemp()); shutil.copytree(cfg.engine_dir, tmp / "engine"); (tmp / "campaigns").mkdir()
+        c = saves.import_save(Config(root=tmp), "audit", Path(a.save).read_text(encoding="utf-8"), Path(a.background).read_text(encoding="utf-8"))
+        print("repairs the importer would make:\n  " + "\n  ".join(c.session.get("import_repairs") or ["none"]))
+        print(report(audit(c)))
+        shutil.rmtree(tmp, ignore_errors=True)
     elif a.cmd == "play":
         from .cli import play
         play(cfg, a.campaign)

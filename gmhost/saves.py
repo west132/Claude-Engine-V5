@@ -162,5 +162,64 @@ def import_save(cfg, name: str, save_text: str, background_text: str) -> Campaig
     c.session = default_session()
     c.session["dues"] = _dues_list(v.get("dues") or {})
     c.base_save = dest
+    c.session["import_repairs"] = repair_import(c)
     c.write_journal()
     return c
+
+
+_DATE_PREFIX = re.compile(r"\d{4}-\d{2}-\d{2}(?:[ T]\d{1,2}:\d{2})?|Year\s+\d+,\s*[A-Za-z][\w\-]*\s+\d+(?:,?\s+\d{1,2}:\d{2})?")
+_IDENTITY = {"npcs": ("name", "job", "belongs", "gender", "character"), "factions": ("name", "role")}
+
+
+def repair_import(c: Campaign) -> list[str]:
+    """Make an older/chat-written save obey the engine's field rules, honestly (I12): values that carry prose
+    where a number or date belongs are cut to the number/date; fields the engine requires but play never
+    established become `unknown`; a lost reserve is restored from BACKGROUND and marked degraded.
+    Changes to capsule records join the next GM-Δ block; every repair is listed so nothing is silent."""
+    from .campaign import Entry
+    from . import rules
+    notes: list[str] = []
+    p = c.player
+    if c.modules.get("flexible_item_entitlement") and not isinstance(p.get("item_points"), int):
+        start = int((((c.bg.get("player") or {}).get("starting_item_points")) or {}).get("points") or 0)
+        p["item_points"] = start
+        p.pop("starting_item_points", None)
+        c.closed_readable["player"] = c.readable["player"]
+        c.pending.append(Entry("+", "continuity_status.degraded.item_points_reserve",
+                               f"item_points was not recorded in the imported save; restored from BACKGROUND starting value {start}", True))
+        notes.append(f"item_points missing → restored to BACKGROUND's {start} (marked degraded)")
+    tree = c.tree()
+    def fix(rid, new, why):
+        c.pending.append(Entry("~", rid, str(new), True)); notes.append(f"{rid}: {why}")
+    for pid, pr in (tree.get("active_world_pressures") or {}).items():
+        ck = (pr or {}).get("clock") if isinstance(pr, dict) else None
+        if not isinstance(ck, dict): continue
+        for f in ("filled", "segments"):
+            v = ck.get(f)
+            if not isinstance(v, int):
+                n = rules.lead_int(v)
+                if n is not None: fix(f"active_world_pressures.{pid}.clock.{f}", n, f"{f} held prose {str(v)[:40]!r} → {n}")
+        due = ck.get("due")
+        if isinstance(due, str):
+            ms = _DATE_PREFIX.findall(due)
+            if ms and due.strip() != ms[0].strip():
+                fix(f"active_world_pressures.{pid}.clock.due", ms[0], f"due held prose after the date → {ms[0]!r}")
+    for nid, n in (tree.get("npcs") or {}).items():
+        if not isinstance(n, dict): continue
+        st = n.get("state")
+        if isinstance(st, dict) and "hp" in st and not isinstance(st["hp"], int):
+            v = rules.lead_int(st["hp"])
+            if v is not None: fix(f"npcs.{nid}.state.hp", v, f"hp held prose → {v}")
+    for owner, req in _IDENTITY.items():
+        for rid, rec in (tree.get(owner) or {}).items():
+            if not isinstance(rec, dict): continue
+            miss = [f for f in req if f not in rec]
+            line = ((c.readable.get("index") or {}).get(owner) or {}).get(rid) or ""
+            idx_name = line.split(" — ")[0].strip() if " — " in line else ""
+            for f in miss:
+                val = idx_name if (f == "name" and idx_name) else "unknown"
+                c.pending.append(Entry("+", f"{owner}.{rid}.{f}", val, True))
+            if miss: notes.append(f"{owner}.{rid}: required fields not established → unknown: {miss}")
+    if notes:
+        c._view_cache.clear()
+    return notes

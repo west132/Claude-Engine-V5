@@ -70,3 +70,8 @@ creating a campaign if you do not want to read it by accident. The *Engine log* 
 - **Turns fail with “malformed tool calls”** – the model is too weak or not instruct-tuned; try a larger one.
 - **Slow turns** – use *lite*, a smaller model, or a GPU build.
 - **Port in use** – change `[server] port`.
+
+## Your own worlds and saves
+- `examples/` ships four ready worlds (Tarnstead, Ashfall, Cyberpunk RED, Last Scion). Worlds with `[UNASSIGNED]` fields (name, age, weapon…) ask you to fill them in before play starts.
+- **Import** an older save with its BACKGROUND. The importer repairs what the engine's field rules forbid (prose inside numbers/dates, missing item points, NPCs without required fields set to `unknown`) and lists every repair; nothing is silent.
+- Audit any save: `python -m gmhost audit <save.md> <BACKGROUND.md>`.

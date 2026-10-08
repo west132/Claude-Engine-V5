@@ -90,3 +90,32 @@ def generate(backend, template_text: str, premise: str, language: str, numeric: 
             msgs += [{"role": "assistant", "content": raw[:6000]},
                      {"role": "user", "content": f"That BACKGROUND was rejected: {last}\nFix exactly these problems and output the complete YAML block again."}]
     raise CampaignError("the model could not write a valid BACKGROUND: " + last)
+
+
+def unassigned(tree: dict) -> list[dict]:
+    """`[UNASSIGNED...]` placeholders the player must set before Round 1 (BACKGROUND 'Before starting')."""
+    out = []
+    def walk(n, path):
+        if isinstance(n, str):
+            if "[UNASSIGNED" in n: out.append({"path": path, "hint": n})
+        elif isinstance(n, dict):
+            for k, v in n.items(): walk(v, f"{path}.{k}" if path else str(k))
+        elif isinstance(n, list):
+            for i, v in enumerate(n): walk(v, f"{path}.{i}")
+    for owner in ("player", "npcs"):
+        walk(tree.get(owner), owner)
+    return out
+
+
+def apply_fill(tree: dict, fill: dict) -> None:
+    for path, value in (fill or {}).items():
+        node = tree
+        parts = path.split(".")
+        for part in parts[:-1]:
+            node = node[int(part)] if isinstance(node, list) else node[part]
+        last = parts[-1]
+        if isinstance(node, list): node[int(last)] = value
+        else: node[last] = value
+    left = unassigned(tree)
+    if left:
+        raise CampaignError("still unassigned: " + ", ".join(x["path"] for x in left))

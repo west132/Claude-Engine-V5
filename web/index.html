@@ -64,6 +64,7 @@ dialog textarea{height:9rem;font:12.5px var(--mono)}.row{display:flex;gap:.6rem}
   <div id="tEx"><label>Example world</label><select id="nEx"></select></div>
   <div id="tPaste" hidden><label>Paste a filled BACKGROUND file, or <input type="file" id="nFile" style="display:inline;width:auto;border:0"></label><textarea id="nBg"></textarea></div>
   <div id="tGen" hidden><label>Describe the world and the character you want (the model fills the BACKGROUND template; you can edit nothing until it validates)</label><textarea id="nPremise" style="font-family:inherit"></textarea></div>
+  <div id="nFill" hidden><p class="note">This world leaves some fields for you to set before play starts.</p><div id="nFillFields"></div></div>
   <div id="nErr" class="note warn" hidden></div>
   <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem"><button type="button" id="nCancel">Cancel</button><button class="primary" id="nGo" type="submit">Start</button></div>
 </form></dialog>
@@ -165,12 +166,15 @@ $('#log').onclick=async e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.act==='unsaved'){await api('/api/continue_unsaved',{});b.closest('.note').innerHTML='Continuing unsaved: exactly one more round, then the save comes first.'}};
 $('#bSave').onclick=()=>run(()=>stream('/api/save',{},ev=>ev.text&&working(ev.text)).then(s=>({narration:'',save:s,warnings:[]})),'(save)');
 // dialogs
-$('#bNew').onclick=async()=>{$('#nEx').innerHTML=info.examples.map(x=>`<option>${x}</option>`).join('');$('#nLang').value=info.defaults.language;$('#nProf').value=info.defaults.profile;$('#nEnc').value=info.defaults.encoding;$('#nErr').hidden=true;$('#dNew').showModal()};
+$('#bNew').onclick=async()=>{$('#nEx').innerHTML=info.examples.map(x=>`<option>${x}</option>`).join('');$('#nLang').value=info.defaults.language;$('#nProf').value=info.defaults.profile;$('#nEnc').value=info.defaults.encoding;$('#nErr').hidden=true;$('#nFill').hidden=true;delete $('#nFill').dataset.done;$('#dNew').showModal()};
 $('#nCancel').onclick=()=>$('#dNew').close();let tab='ex';
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));$('#tEx').hidden=tab!=='ex';$('#tPaste').hidden=tab!=='paste';$('#tGen').hidden=tab!=='gen'});
 $('#nFile').onchange=async e=>{$('#nBg').value=await e.target.files[0].text()};
 $('#fNew').onsubmit=async e=>{e.preventDefault();const body={name:$('#nName').value,language:$('#nLang').value,profile:$('#nProf').value,encoding:$('#nEnc').value};
   try{if(tab==='ex')body.background=(await api('/api/example?id='+encodeURIComponent($('#nEx').value))).text;else if(tab==='paste')body.background=$('#nBg').value;else body.premise=$('#nPremise').value;
+  if(body.background&&!$('#nFill').dataset.done){const f=(await api('/api/unassigned',{background:body.background})).fields;
+    if(f.length){$('#nFillFields').innerHTML=f.map(x=>`<label>${esc(x.path)} <small>${esc(x.hint.replace(/\[UNASSIGNED:?\s*|\]/g,'')||'required')}</small></label><input data-path="${esc(x.path)}" required>`).join('');$('#nFill').hidden=false;$('#nFill').dataset.done='1';$('#nFillFields input').focus();return}}
+  if(!$('#nFill').hidden){body.fill={};document.querySelectorAll('#nFillFields input').forEach(i=>body.fill[i.dataset.path]=i.value.trim())}
   $('#nGo').disabled=true;$('#nErr').hidden=false;$('#nErr').classList.remove('warn');$('#nErr').textContent='Working…';
   await stream('/api/create',body,ev=>ev.text&&($('#nErr').textContent='… '+ev.text));$('#dNew').close();await api('/api/open',{name:body.name});info=await api('/api/info');await enter()}
   catch(err){$('#nErr').classList.add('warn');$('#nErr').hidden=false;$('#nErr').textContent=err.message}finally{$('#nGo').disabled=false}};

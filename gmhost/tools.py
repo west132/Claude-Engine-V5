@@ -100,7 +100,9 @@ _CHECK = O({
     "action": S("the attempted action, short", minLength=3),
     "why_uncertain": S("why this could honestly go either way (if an obvious answer exists, do not roll)", minLength=8),
     "capability": O({"mode": E("numeric", "absolute"),
-                     "cmp": I("numeric: actor capability (level + skill tier bonus)", 1),
+                     "cmp": I("numeric: actor capability (level + skill tier bonus); omit for the player when skill_id is given — the host computes it", 1),
+                     "skill_id": S("numeric, player: the skill bound as exercised; the host computes cmp = level + tier bonus"),
+                     "gear_item_id": S("module B: the equipment item whose tier boost applies (never also a ToolMod, I8)"),
                      "challenge": I("numeric: the task/opponent's committed Challenge", 1),
                      "capmod": {"type": "integer", "enum": [-4, -2, 0, 2, 4], "description": "absolute: capability band"},
                      "base": I("absolute: the task's own difficulty 1-20", 1, 20),
@@ -145,7 +147,8 @@ def t_check(ctx: TurnCtx, a):
     cap = a["capability"]
     numeric = cap["mode"] == "numeric"
     if numeric:
-        if "cmp" not in cap or "challenge" not in cap: errs.append("numeric mode needs capability.cmp and capability.challenge")
+        if "challenge" not in cap: errs.append("numeric mode needs capability.challenge")
+        if "cmp" not in cap and not (actor_id == "player" and cap.get("skill_id")): errs.append("numeric mode needs capability.cmp (or skill_id for the player)")
         if "capmod" in cap or "base" in cap: errs.append("numeric mode: task power lives in the Challenge; drop capmod/base (base is always 10)")
         if not camp.numeric and actor_id == "player": errs.append("numeric_level_xp is not enabled: use mode `absolute`")
     else:
@@ -171,10 +174,31 @@ def t_check(ctx: TurnCtx, a):
         attackers = list(harm.get("engaged_ids") or ([harm["source_id"]] if harm.get("source_id") else []))
         for x in attackers:
             if x not in sess["combat"]: errs.append(f"attacker {x!r} is not registered: `combat add` it first")
+    cmp_host, boost_note = None, ""
+    if numeric and not errs:
+        cmp_host = int(cap["cmp"]) if "cmp" in cap else None
+        if actor_id == "player" and cap.get("skill_id"):
+            sk = camp.player.get("skills", {}).get(cap["skill_id"])
+            lvl = ((camp.player.get("progression") or {}).get("state") or {}).get("level")
+            if sk is None: errs.append(f"player has no skill {cap['skill_id']!r}")
+            elif not lvl: errs.append("no overall level to build capability from; use mode absolute")
+            else:
+                cmp_host = int(lvl) + rules.TIER_BONUS[sk["tier"]]
+                if cap["skill_id"] not in skills: skills = skills + [cap["skill_id"]]
+        if cap.get("gear_item_id") and not errs:
+            if not camp.modules.get("equipment_power_tiers"): errs.append("equipment_power_tiers is not enabled: no gear boost exists")
+            elif fit or cond: errs.append("a gear boost is never also a ToolMod (I8): set tool.fit and tool.condition to 0")
+            else:
+                it = next((x for x in camp.player.get("equipment", []) if x.get("item_id") == cap["gear_item_id"]), None)
+                if it is None or it.get("tier") not in rules.GEAR_BOOST: errs.append(f"no tiered equipment item {cap['gear_item_id']!r}")
+                elif it.get("condition") == "critical": errs.append("a critical item gives no boost")
+                else:
+                    cmp_host += rules.GEAR_BOOST[it["tier"]]
+                    boost_note = f" (+{rules.GEAR_BOOST[it['tier']]} from {it['name']})"
     if errs:
         raise ToolError("; ".join(errs))
     kw = dict(fit=fit, condition=cond, **cats)
-    if numeric: kw.update(cmp=int(cap["cmp"]), challenge=int(cap["challenge"]))
+    if numeric: kw.update(cmp=int(cmp_host), challenge=int(cap["challenge"]))
     else: kw.update(capmod=int(cap["capmod"]), base=int(cap["base"]))
     try:
         odds = m.do_check(helper.check_ns(**kw, odds=True))
@@ -747,7 +771,11 @@ def t_player_update(ctx: TurnCtx, a):
     p, d, k = camp.player, a["data"], a["kind"]
     if k == "money":
         delta = d.get("delta")
-        if isinstance(p.get("money"), dict) and isinstance(delta, dict):
+        if isinstance(p.get("money"), dict) and "cash_and_accessible_funds" in p["money"] and isinstance(delta, int):
+            new = int(p["money"]["cash_and_accessible_funds"]) + delta
+            if new < 0: raise ToolError(f"not enough money: has {new - delta}")
+            p["money"]["cash_and_accessible_funds"] = new
+        elif isinstance(p.get("money"), dict) and isinstance(delta, dict):
             new = dict(p["money"])
             for coin, v in delta.items():
                 if coin not in new and v < 0: raise ToolError(f"player has no {coin}")

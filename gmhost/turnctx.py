@@ -95,7 +95,7 @@ class Hurtable:
         if self.kind == "player": return int(self.ctx.camp.player["condition"]["hp"])
         if self.kind == "combat": return int(self.ctx.camp.session["combat"][self.id]["hp"])
         st = (self.ctx.get(f"npcs.{self.id}.state") or {})
-        return int(st.get("hp", self.max_hp)) if isinstance(st, dict) else self.max_hp
+        return rules.lead_int(st.get("hp"), self.max_hp) if isinstance(st, dict) else self.max_hp
 
     def set_hp(self, v: int):
         v = max(0, min(self.max_hp, int(v)))

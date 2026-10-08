@@ -1,5 +1,6 @@
 """Engine tables and derived values as code (engine §10.5, §11, §A). No judgement here."""
 from __future__ import annotations
+import json
 import re
 
 from . import helper
@@ -48,7 +49,8 @@ def vitality_value(player_or_actor: dict, numeric: bool) -> int:
 def mp_tier(actor: dict, draws_mp: list[str]) -> str | None:
     best = None
     for sid, sk in (actor.get("skills") or {}).items():
-        if sid in draws_mp or any(str(d).lower() in str(sid).lower() for d in draws_mp):
+        text = (str(sid) + " " + json.dumps((sk or {}).get("abilities") or [], ensure_ascii=False)).lower()
+        if any(str(d).lower() in text for d in draws_mp):
             t = (sk or {}).get("tier")
             if t in TIER_ORDER and (best is None or TIER_ORDER.index(t) > TIER_ORDER.index(best)):
                 best = t
@@ -73,3 +75,14 @@ def personal_skill_level(level: int | None, tier: str) -> int | None:
 def odds_percent(capmod: int, tool: int, difficulty: int) -> int:
     need = difficulty - capmod - tool
     return sum(1 for x in range(1, 11) for y in range(1, 11) if x + y >= need)
+
+
+GEAR_BOOST = {"T1": 0, "T2": 1, "T3": 2, "T4": 4}      # engine Part 2 §B
+
+
+def lead_int(v, default=None):
+    """Leading integer of a value that may carry prose, e.g. '12 — full night's rest' -> 12."""
+    if isinstance(v, bool): return default
+    if isinstance(v, (int, float)): return int(v)
+    m = re.match(r"\s*(-?\d+)", str(v if v is not None else ""))
+    return int(m.group(1)) if m else default

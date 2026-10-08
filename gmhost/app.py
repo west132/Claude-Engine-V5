@@ -70,7 +70,7 @@ class App:
 
     # ---- campaigns ---------------------------------------------------------------------------
     def create(self, name, background_text=None, premise=None, language=None, profile=None, encoding=None,
-               on_event=lambda e: None) -> dict:
+               on_event=lambda e: None, fill=None) -> dict:
         with self.lock:
             if background_text is None:
                 if not premise: raise CampaignError("give a BACKGROUND file or a premise")
@@ -79,8 +79,12 @@ class App:
                 background_text = bgen.generate(self.backend, tmpl, premise, language or self.cfg.game.language, True, on_event)
             else:
                 bgen.check_background_text(background_text)
-            self.camp = Campaign.create(self.cfg, name, background_text, language, profile, encoding)
+            self.camp = Campaign.create(self.cfg, name, background_text, language, profile, encoding, fill)
             return {"name": name}
+
+    def unassigned(self, background_text: str) -> list[dict]:
+        from .campaign import normalize_background
+        return bgen.unassigned(normalize_background(background_text))
 
     def open(self, name) -> Campaign:
         with self.lock:
