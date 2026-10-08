@@ -178,5 +178,12 @@ def make_backend(cfg: Config) -> Backend:
         return LlamaCppBackend(cfg)
     if cfg.model.model:
         return OpenAICompatBackend(cfg)
-    raise LLMError("no model configured. Put a .gguf file in the models/ folder "
-                   "(see INSTALL.md), or set [model] backend/model in config.toml.")
+    from .sysinfo import list_models                    # a program already running on this computer (LM Studio, Ollama)
+    for base in dict.fromkeys([cfg.model.base_url, "http://127.0.0.1:1234/v1", "http://127.0.0.1:11434/v1"]):
+        names = [m for m in list_models(base, cfg.model.api_key) if "embed" not in m.lower()]
+        if names:
+            cfg.model.base_url, cfg.model.model = base, names[0]
+            return OpenAICompatBackend(cfg)
+    raise LLMError("no AI model found. Start LM Studio (load a model, then Developer -> Start Server) or Ollama, "
+                   "or put a .gguf file in the models/ folder, then press Reload. "
+                   "You can also run: python -m gmhost setup (see INSTALL.md).")

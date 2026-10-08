@@ -74,14 +74,7 @@ def download(url: str, dest_dir: Path, say: Callable[[str], None] = print, sha25
     return dest
 
 
-def list_models(base_url: str, api_key: str = "") -> list[str]:
-    """Ask an OpenAI-compatible server (Ollama, LM Studio, an API) which models it offers. Empty list = unreachable."""
-    req = urllib.request.Request(base_url.rstrip("/") + "/models", headers={"Authorization": f"Bearer {api_key}"} if api_key else {})
-    try:
-        with urllib.request.urlopen(req, timeout=5) as r:
-            return [m["id"] for m in json.loads(r.read().decode("utf-8")).get("data", []) if m.get("id")]
-    except Exception:
-        return []
+from .sysinfo import list_models  # noqa: E402  (kept here so the wizard and its tests use one name)
 
 
 def write_model_config(root: Path, **fields) -> Path:

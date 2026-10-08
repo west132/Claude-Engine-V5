@@ -74,6 +74,16 @@ def _server(url) -> bool:
         return False
 
 
+def list_models(base_url: str, api_key: str = "") -> list[str]:
+    """Ask an OpenAI-compatible server (Ollama, LM Studio, an API) which models it offers. Empty list = unreachable."""
+    req = urllib.request.Request(base_url.rstrip("/") + "/models", headers={"Authorization": f"Bearer {api_key}"} if api_key else {})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return [m["id"] for m in json.loads(r.read().decode("utf-8")).get("data", []) if m.get("id")]
+    except Exception:
+        return []
+
+
 def have(module: str) -> bool:
     return importlib.util.find_spec(module) is not None
 
