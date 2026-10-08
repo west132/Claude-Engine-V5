@@ -14,7 +14,7 @@ Not every NPC is worth a model call. Three tiers, decided by code, not by the AI
 
 | Tier | Who | Treatment |
 |---|---|---|
-| Principals | The main NPCs built in the BACKGROUND (the recorded ones) | Own agent when they act or speak, plus off-screen plans advanced when time passes |
+| Principals | The NPCs marked as main in the BACKGROUND (see "Who is a main NPC" below) | Own agent when they act or speak, plus off-screen plans advanced when time passes |
 | Of interest | NPCs the player character shows interest in: asked about, spoken to repeatedly, investigated, followed, named in the player's actions | Promoted to an agent after code sees enough interest (a simple counter, or the player says so). Promotion creates a proper NPC record |
 | Everyone else | Crowds, clerks, passers-by | No agent. The referee and narrator handle them in the scene |
 
@@ -73,6 +73,8 @@ The engine was written for a chat page, where one AI does everything. These are 
 - The player's own character is not covered by these settings.
 - It also settles injuries on incidental actors: they are ordinary NPCs, so the dying rule applies and no record is needed.
 - To confirm when this is built: that the engine's existing one-hour 2d10 roll (wake at 1 HP on 11+, else die) stays as the rule after the hour.
+
+**2b. Who is a main NPC.** The engine has no such mark. §13.1 keeps a persistent record for any NPC who "recurs or matters", which includes minor ones, so "recorded" is not the same as "main". Both the death-protection setting and the role-agent tiers need an explicit field, for example `importance: main` on an NPC in the BACKGROUND, set by the author or by the generator at world creation. Without it, "important NPC" would wrongly cover every recorded NPC.
 
 **3. Saves.**
 - Keep the readable text save and capsule as the export and exchange format, because it is what chat saves and your 120-round campaign use.
