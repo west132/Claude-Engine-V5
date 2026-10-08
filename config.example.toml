@@ -22,3 +22,6 @@ narration_retries = 2
 [server]
 host = "127.0.0.1"
 port = 8765
+tailscale = false      # true: also listen on this computer's Tailscale address (phone / other computers on your tailnet)
+token = ""             # optional access token; when set, open the page once with  /?token=<value>  on each device
+allowed_hosts = []     # extra Host names to accept (localhost, *.ts.net and 100.64.0.0/10 are always accepted)

@@ -350,6 +350,9 @@ def t_resume_check(ctx: TurnCtx, a):
         ["question", "settle_test", "label", "likelihood"]))
 def t_ask(ctx: TurnCtx, a):
     lk, fo, ag = a["likelihood"], a.get("for") or [], a.get("against") or []
+    for fact in fo + ag:
+        if len(fact.split()) < 3 or len(fact) < 15:
+            raise ToolError(f"each likelihood fact must be a recorded fact written as a sentence (who/what/why), not a keyword: {fact!r}")
     if lk > 0 and not fo: raise ToolError("positive likelihood needs at least one recorded fact in `for`")
     if lk < 0 and not ag: raise ToolError("negative likelihood needs at least one recorded fact in `against`")
     if abs(lk) > len(fo) + len(ag) + (1 if lk == 0 else 0) and abs(lk) > 0 and abs(lk) > len(fo) + len(ag):
@@ -921,6 +924,10 @@ _CLOSE = O({
       "(due plans/clocks, lasting injuries, temper, a downed player).", _CLOSE)
 def t_close(ctx: TurnCtx, a):
     camp = ctx.camp
+    if ctx.check_refused and not ctx.rolled and not ctx.close_warned:
+        ctx.close_warned = True
+        raise ToolError("your roll (check/ask) was REFUSED and nothing was rolled. If this action is uncertain, call it again with the "
+                        "corrected arguments (a dropped roll is a hidden success: I10). If it truly needs no roll, call close_round again.")
     if ctx.must_settle:
         raise ToolError("cannot close yet — settle these first:\n- " + "\n- ".join(ctx.must_settle.values()))
     if ctx.stopped_for_odds and a["opened_round"]:

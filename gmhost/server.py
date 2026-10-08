@@ -1,8 +1,12 @@
 """Local web server (stdlib only). Binds to 127.0.0.1; long operations stream progress as SSE."""
 from __future__ import annotations
+import hmac
+import ipaddress
 import json
 import mimetypes
 import re
+import shutil
+import subprocess
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,6 +23,38 @@ WEB = Path(__file__).resolve().parents[1] / "web"
 _NAME = re.compile(r"^[A-Za-z0-9_\-]{1,40}$")
 
 
+def host_allowed(host_header: str, extra=()) -> bool:
+    """DNS-rebinding guard: accept only names that really mean this machine or its tailnet."""
+    h = (host_header or "").strip().lower()
+    if h.startswith("["):                       # [::1]:8765
+        h = h[1:].split("]")[0]
+    elif h.count(":") == 1:
+        h = h.split(":")[0]
+    if h in ("127.0.0.1", "localhost", "::1") or h.endswith(".ts.net") or h in {x.lower() for x in extra}:
+        return True
+    try:
+        return ipaddress.ip_address(h) in ipaddress.ip_network("100.64.0.0/10")      # Tailscale addresses
+    except ValueError:
+        return False
+
+
+def tailscale_ip() -> str | None:
+    exe = shutil.which("tailscale")
+    if exe:
+        try:
+            out = subprocess.run([exe, "ip", "-4"], capture_output=True, text=True, timeout=5).stdout.split()
+            if out: return out[0]
+        except Exception:
+            pass
+    try:                                         # fall back to scanning this machine's addresses
+        import socket
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            if host_allowed(info[4][0]) and info[4][0] != "127.0.0.1": return info[4][0]
+    except Exception:
+        pass
+    return None
+
+
 def make_handler(app: App):
     class H(BaseHTTPRequestHandler):
         server_version = "GMHost/0.1"
@@ -27,8 +63,15 @@ def make_handler(app: App):
 
         # ---- plumbing ---------------------------------------------------------------------
         def _host_ok(self) -> bool:
-            host = (self.headers.get("Host") or "").split(":")[0]
-            return host in ("127.0.0.1", "localhost", "[::1]", "::1")
+            return host_allowed(self.headers.get("Host"), app.cfg.server.allowed_hosts)
+
+        def _auth_ok(self) -> bool:
+            tok = app.cfg.server.token
+            if not tok: return True
+            for part in (self.headers.get("Cookie") or "").split(";"):
+                k, _, v = part.strip().partition("=")
+                if k == "gm_token" and hmac.compare_digest(v, tok): return True
+            return False
 
         def _json(self, obj, code=200):
             data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -75,6 +118,14 @@ def make_handler(app: App):
             u = urlparse(self.path)
             q = parse_qs(u.query)
             path = unquote(u.path)
+            tok = app.cfg.server.token
+            if tok and q.get("token", [""])[0] and hmac.compare_digest(q["token"][0], tok):
+                self.send_response(302)
+                self.send_header("Set-Cookie", f"gm_token={tok}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000")
+                self.send_header("Location", "/"); self.end_headers(); return
+            if not self._auth_ok():
+                data = b"<!doctype html><meta name=viewport content='width=device-width'><body style='font:16px system-ui;padding:2rem'>This server needs its access token. Open the link with <code>?token=...</code> once."
+                self.send_response(401); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data); return
             if path == "/api/info": return self._guard(lambda: self._json({**app.info(), "examples": [e["id"] for e in app.examples()]}))
             if path == "/api/example":
                 return self._guard(lambda: self._json(next(e for e in app.examples() if e["id"] == q.get("id", [""])[0])))
@@ -105,7 +156,7 @@ def make_handler(app: App):
 
         # ---- POST --------------------------------------------------------------------------
         def do_POST(self):
-            if not self._host_ok() or self.headers.get("X-GM") != "1":
+            if not self._host_ok() or self.headers.get("X-GM") != "1" or not self._auth_ok():
                 return self._json({"error": "forbidden"}, 403)
             path = urlparse(self.path).path
             try:
@@ -138,18 +189,30 @@ def make_handler(app: App):
     return H
 
 
-def serve(cfg: Config, port: int | None = None, open_browser: bool = True, app: App | None = None):
+def serve(cfg: Config, port: int | None = None, open_browser: bool = True, app: App | None = None,
+          tailscale: bool | None = None, host: str | None = None):
     app = app or App(cfg)
     port = port or cfg.server.port
-    httpd = ThreadingHTTPServer((cfg.server.host, port), make_handler(app))
-    url = f"http://{cfg.server.host}:{port}/"
-    print(f"GM host running at {url}")
+    hosts = [host or cfg.server.host]
+    if tailscale or (tailscale is None and cfg.server.tailscale):
+        ts = tailscale_ip()
+        if ts: hosts.append(ts)
+        else: print("NOTE: --tailscale given but no Tailscale address found (is Tailscale running?). Serving locally only.")
+    servers = [ThreadingHTTPServer((h, port), make_handler(app)) for h in dict.fromkeys(hosts)]
+    for h in dict.fromkeys(hosts):
+        print(f"GM host running at http://{h}:{port}/")
+    if len(servers) > 1 and not cfg.server.token:
+        print("NOTE: anyone on your tailnet can open this. Set [server] token in config.toml to require an access token.")
+    if cfg.server.token:
+        print(f"Access token is on: open  http://<address>:{port}/?token={cfg.server.token}  once on each device.")
     if app.model_error:
         print("NOTE: no model is loaded yet:\n  " + app.model_error.replace("\n", "\n  "))
     if open_browser:
-        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.8, lambda: webbrowser.open(f"http://127.0.0.1:{port}/" + (f"?token={cfg.server.token}" if cfg.server.token else ""))).start()
+    for extra in servers[1:]:
+        threading.Thread(target=extra.serve_forever, daemon=True).start()
     try:
-        httpd.serve_forever()
+        servers[0].serve_forever()
     except KeyboardInterrupt:
         print("\nbye")
-    return httpd
+    return servers[0]

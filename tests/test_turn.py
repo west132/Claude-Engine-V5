@@ -158,3 +158,32 @@ def test_server_roundtrip_and_csrf_guard(cfg, example_text):
     snap = json.loads(urllib.request.urlopen(base + "/api/campaign").read())
     assert snap["status"]["round"] == 1
     httpd.shutdown()
+
+
+def test_host_guard_allows_only_local_and_tailnet_names():
+    from gmhost.server import host_allowed
+    for ok in ("127.0.0.1:8765", "localhost", "[::1]:8765", "100.101.102.103:8765", "pc.tail1234.ts.net"):
+        assert host_allowed(ok), ok
+    for bad in ("evil.com", "192.168.1.5:8765", "100.200.1.1", "10.0.0.1", ""):
+        assert not host_allowed(bad), bad
+    assert host_allowed("my.lan", ["my.lan"])
+
+
+def test_access_token_gates_the_server(cfg, example_text):
+    from gmhost.server import make_handler
+    from http.server import ThreadingHTTPServer
+    import http.client
+    cfg.server.token = "s3cret"
+    app = App(cfg, DemoBackend())
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(app))
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    port = httpd.server_address[1]
+    def get(path, cookie=None):
+        c = http.client.HTTPConnection("127.0.0.1", port); c.request("GET", path, headers={"Cookie": cookie} if cookie else {}); r = c.getresponse(); r.read(); return r
+    assert get("/api/info").status == 401
+    r = get("/?token=wrong"); assert r.status == 401
+    r = get("/?token=s3cret"); assert r.status == 302 and "gm_token=s3cret" in r.getheader("Set-Cookie")
+    assert get("/api/info", "gm_token=s3cret").status == 200
+    c = http.client.HTTPConnection("127.0.0.1", port); c.request("POST", "/api/save", "{}", {"X-GM": "1", "Content-Type": "application/json"})
+    assert c.getresponse().status == 403
+    httpd.shutdown()

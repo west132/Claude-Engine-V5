@@ -10,6 +10,8 @@ def main():
     sub = ap.add_subparsers(dest="cmd")
     s = sub.add_parser("serve", help="start the local web app (default)")
     s.add_argument("--port", type=int); s.add_argument("--no-browser", action="store_true")
+    s.add_argument("--tailscale", action="store_true", help="also listen on this machine's Tailscale address")
+    s.add_argument("--host", help="address to listen on (default 127.0.0.1)")
     s.add_argument("--demo", action="store_true", help="use the built-in rule-based stand-in instead of a model")
     c = sub.add_parser("check", help="verify the installation (python, packages, engine files, model)")
     c.add_argument("--demo", action="store_true")
@@ -26,7 +28,8 @@ def main():
         cfg.model.backend = "mock"
     if a.cmd in (None, "serve"):
         from .server import serve
-        serve(cfg, port=getattr(a, "port", None), open_browser=not getattr(a, "no_browser", False))
+        serve(cfg, port=getattr(a, "port", None), open_browser=not getattr(a, "no_browser", False),
+              tailscale=True if getattr(a, "tailscale", False) else None, host=getattr(a, "host", None))
     elif a.cmd == "check":
         from .selfcheck import run
         sys.exit(run(cfg, load_model=a.load))

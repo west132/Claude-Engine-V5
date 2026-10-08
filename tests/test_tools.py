@@ -285,3 +285,18 @@ def test_cast_and_mp(ctx):
 def test_schema_validator_catches_bad_shapes():
     errs = sch.validate({"op": "x", "id": "a"}, REGISTRY["commit"].schema["properties"]["entries"]["items"])
     assert any("op" in e for e in errs) and any("content" in e for e in errs)
+
+
+def test_a_refused_roll_cannot_be_silently_dropped(ctx):
+    from gmhost.turn import Game  # noqa: F401  (flag is set by the turn loop; the guard lives in close_round)
+    ctx.check_refused = True
+    close = dict(opened_round=False, visible=["She lets it go."])
+    with pytest.raises(ToolError, match="REFUSED and nothing was rolled"):
+        call(ctx, "close_round", **close)
+    assert call(ctx, "close_round", **close) == "closed"           # second call confirms no roll is needed
+
+
+def test_ask_facts_must_be_sentences_not_keywords(ctx):
+    with pytest.raises(ToolError, match="sentence"):
+        call(ctx, "ask", question="Will Nadia tell Rin more?", settle_test="record does not say whether she holds anything back",
+             label="Nadia Voss", likelihood=1, **{"for": ["important"], "against": []})
