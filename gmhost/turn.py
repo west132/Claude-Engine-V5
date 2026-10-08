@@ -79,6 +79,7 @@ def gm_view(block: Block) -> str:
 class Game:
     def __init__(self, cfg: Config, backend: Backend):
         self.cfg, self.backend = cfg, backend
+        self.trace: list[dict] = []
         helper.load(cfg.engine_dir)
         self.engine = Engine(cfg.engine_dir)
         self.system = prompts.referee_system(self.engine)
@@ -96,9 +97,28 @@ class Game:
     # ---------------------------------------------------------------------------------------
     def _chat(self, msgs, **kw):
         try:
-            return self.backend.chat(msgs, **kw)
+            raw = self.backend.chat(msgs, **kw)
         except LLMError as e:
             raise TurnError(str(e))
+        self.trace.append({"messages": [dict(m) for m in msgs], "reply": raw})
+        return raw
+
+    def _write_trace(self, camp: Campaign):
+        """Keep what the AI was actually sent in the last turn, so you can see for yourself that the engine rules and the save reach it."""
+        out = [f"# What the AI was sent in the last turn ({len(self.trace)} calls)\n"]
+        for i, c in enumerate(self.trace, 1):
+            out.append(f"\n---\n## Call {i}")
+            for m in c["messages"]:
+                if m["role"] == "system":
+                    first = m["content"].splitlines()[0] if m["content"] else ""
+                    out.append(f"\n### system (about {est_tokens(m['content'])} tokens; the engine rules quoted verbatim, not repeated here)\n{first}")
+                else:
+                    out.append(f"\n### {m['role']} (about {est_tokens(m['content'])} tokens)\n{m['content']}")
+            out.append(f"\n### reply\n{c['reply']}")
+        try:
+            (camp.work / "last_turn_prompts.md").write_text("\n".join(out), encoding="utf-8")
+        except OSError:
+            pass
 
     def _triage(self, camp, ctx, text) -> dict:
         brief = prompts.state_brief(camp, hp_line(ctx))
@@ -228,13 +248,17 @@ class Game:
         return self._turn(camp, "", on_event, opening=True)
 
     def _turn(self, camp: Campaign, text: str, on_event, opening: bool) -> TurnResult:
+        self.trace = []
         if camp.session.get("ended"):
             raise TurnError("the character is dead. Load an earlier save to continue.")
         if not opening and camp.rnd >= camp.T and camp.session.get("deferral") != "one_round":
             return TurnResult(blocked="save_due", narration="A checkpoint save is due and could not be produced. "
                               "Retry the save, or choose “continue unsaved” (one more round only).")
         if not opening and (leads.is_recap(text) or leads.needs_guidance(camp, text)):
-            return self._info_turn(camp, text, on_event)
+            try:
+                return self._info_turn(camp, text, on_event)
+            finally:
+                self._write_trace(camp)
         snap = camp.snapshot()
         ctx = TurnCtx(camp, text, engine=self.engine)
         ctx.pending_at_start = copy.deepcopy(camp.session.get("pending_odds"))
@@ -250,7 +274,9 @@ class Game:
                                 "(it can still open them itself)")
         except Exception:
             camp.restore(snap)
+            self._write_trace(camp)
             raise
+        self._write_trace(camp)
         return self._commit(camp, ctx, text, closed, prose, warnings, steps, on_event, opening)
 
     def _info_turn(self, camp: Campaign, text: str, on_event) -> TurnResult:

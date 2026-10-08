@@ -276,3 +276,12 @@ def test_recap_alone_has_no_menu_and_no_round(cfg, r120):
     b = scripted("A short recap.", OK)
     res = Game(cfg, b).play(r120, "what happened so far?")
     assert res.decision is None and res.round is None and "recap" in res.narration.lower()
+
+
+def test_last_turn_prompts_are_kept_so_the_user_can_see_what_the_ai_got(cfg, camp):
+    b = scripted(TRIAGE, step("close_round", opened_round=False, visible=["You look around."]), "You look around the workshop.", OK)
+    Game(cfg, b).play(camp, "I look around")
+    text = (camp.work / "last_turn_prompts.md").read_text(encoding="utf-8")
+    assert "Call 1" in text and "PLAYER SAYS: I look around" in text and "the engine rules quoted verbatim" in text
+    app = App(cfg); app.camp = camp
+    assert app.prompts_file().name == "last_turn_prompts.md"

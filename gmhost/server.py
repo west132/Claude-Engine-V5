@@ -142,7 +142,7 @@ def make_handler(app: App):
             if path.startswith("/api/download/"):
                 def dl():
                     name = path.rsplit("/", 1)[1]
-                    p = app.background_file() if name == "background" else app.save_file(name)
+                    p = app.background_file() if name == "background" else app.prompts_file() if name == "prompts" else app.save_file(name)
                     data = p.read_bytes()
                     self.send_response(200)
                     self.send_header("Content-Type", "text/markdown; charset=utf-8")
