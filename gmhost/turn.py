@@ -86,8 +86,11 @@ class Game:
         self.check_sys = prompts.checker_system(self.engine)
         need = est_tokens(self.system) + cfg.model.max_new_tokens + 5000
         if backend.n_ctx < need:
+            hint = (" In LM Studio: open the Developer tab (or the model's settings), set Context Length to 32768, reload the model, "
+                    "then press Reload here." if getattr(backend, "loaded_ctx", None) else " Raise n_ctx (or use a model with a longer context).")
             raise TurnError(f"the model context ({backend.n_ctx} tokens) is too small: the engine rules alone need about "
-                            f"{need} tokens. Raise n_ctx (or use a model with a longer context). The rules are never cut.")
+                            f"{need} tokens, and anything longer is cut off from the start, so the AI would never see the rules.{hint} "
+                            "The rules are never cut.")
         self.step_schema = prompts.step_schema_per_tool() if backend.name == "llama_cpp" else prompts.step_schema()
 
     # ---------------------------------------------------------------------------------------

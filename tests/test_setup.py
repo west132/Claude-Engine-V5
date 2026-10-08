@@ -160,3 +160,31 @@ def test_auto_backend_explains_when_nothing_is_running(cfg):
     cfg.model.backend, cfg.model.base_url, cfg.model.model = "auto", "http://127.0.0.1:1/v1", ""
     with pytest.raises(llm.LLMError, match="LM Studio"):
         llm.make_backend(cfg)
+
+
+class _LMStudio(BaseHTTPRequestHandler):
+    CTX = 4096
+    def log_message(self, *a): pass
+    def do_GET(self):
+        if self.path.startswith("/api/v0/models"):
+            body = ('{"data":[{"id":"qwen-14b","state":"loaded","loaded_context_length":%d,"max_context_length":32768}]}' % self.CTX).encode()
+        else:
+            body = b'{"data":[{"id":"qwen-14b"}]}'
+        self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+
+
+def test_a_small_lm_studio_context_is_caught_before_play(cfg):
+    from gmhost import llm
+    from gmhost.turn import Game, TurnError
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _LMStudio); threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_address[1]}/v1"
+    cfg.model.backend, cfg.model.base_url, cfg.model.model = "openai", url, "qwen-14b"
+    b = llm.make_backend(cfg)
+    assert b.loaded_ctx == 4096 and b.n_ctx == 4096
+    with pytest.raises(TurnError, match="LM Studio.*32768"):
+        Game(cfg, b)
+    _LMStudio.CTX = 32768
+    try:
+        assert llm.make_backend(cfg).n_ctx == 32768
+    finally:
+        _LMStudio.CTX = 4096
