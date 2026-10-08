@@ -16,7 +16,9 @@ class DemoBackend(Backend):
 
     def chat(self, messages, *, max_tokens=1024, temperature=0.3, schema=None, on_token=None):
         sys0 = messages[0]["content"]
-        if sys0.startswith("ROLE: NARRATOR"):
+        if messages[0]["role"] != "system":
+            out = '{"ok": true}'
+        elif sys0.startswith("ROLE: NARRATOR"):
             out = self._narrate(messages[-1]["content"])
         elif sys0.startswith("ROLE: CHECKER"):
             out = json.dumps({"ok": True, "issues": []})
