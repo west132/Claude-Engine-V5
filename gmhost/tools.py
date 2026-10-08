@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """The referee's tools. The model judges; every number, roll and write happens here.
 
 Each tool validates its arguments against the engine's rules and either performs the

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Round-0 BACKGROUND: validate a filled BACKGROUND, or have the model fill the template from a premise."""
 from __future__ import annotations
 import re

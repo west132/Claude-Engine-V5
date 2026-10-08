@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Engine "cards": verbatim slices of the engine files.
 
 Nothing here rewrites engine text. Sections are cut at their own headings, and

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Simulation of the user's real campaign (Ashfall: Hunter, saves R10..R120).
 
 The saves are ground truth. Three simulations check the software against them:

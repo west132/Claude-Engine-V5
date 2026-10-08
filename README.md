@@ -9,3 +9,6 @@ download once and drop in `models/`) judges, narrates and checks, following the 
 - **Tests:** `pip install pytest && pytest`
 
 `engine/` holds the five original files unchanged. `examples/` holds four ready worlds; `tests/data/ashfall/` is a real 120-round campaign used as the regression test.
+
+---
+Copyright (c) 2026 West132.WL. All rights reserved. See [LICENSE](LICENSE).

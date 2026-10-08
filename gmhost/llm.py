@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Model backends. The rest of the app only sees `Backend.chat()`.
 
 llama_cpp  loads a .gguf from models/ in-process (nothing else to install or run)

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Per-turn working context shared by all tools."""
 from __future__ import annotations
 import re

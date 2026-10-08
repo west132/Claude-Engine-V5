@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """A rule-based stand-in for a language model (config: backend = "mock").
 
 It lets you click through the whole app — tools, dice, saves, UI — with no model installed,

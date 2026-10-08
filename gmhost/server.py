@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Local web server (stdlib only). Binds to 127.0.0.1; long operations stream progress as SSE."""
 from __future__ import annotations
 import hmac
@@ -193,6 +194,7 @@ def serve(cfg: Config, port: int | None = None, open_browser: bool = True, app: 
           tailscale: bool | None = None, host: str | None = None):
     app = app or App(cfg)
     port = port or cfg.server.port
+    print("Storyteller — Copyright (c) 2026 West132.WL. All rights reserved.")
     hosts = [host or cfg.server.host]
     if tailscale or (tailscale is None and cfg.server.tailscale):
         ts = tailscale_ip()

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 import pytest
 
 from gmhost import schema as sch

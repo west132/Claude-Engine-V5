@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """World time (engine §13.2). Arithmetic via the helper; dates only when established."""
 from __future__ import annotations
 import datetime as _dt

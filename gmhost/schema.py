@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Tiny JSON-Schema subset validator (type, enum, required, properties, items, min/max, oneOf-by-const).
 
 One schema per referee tool serves three jobs: constrained decoding (llama.cpp grammar),

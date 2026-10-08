@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """The four shipped worlds and a real R120 chat save must load, audit and repair cleanly."""
 from pathlib import Path
 

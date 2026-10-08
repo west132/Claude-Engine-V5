@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Prompt assembly. Engine and AI_RULES text is quoted verbatim by Engine/cards; only the HOST NOTES
 and the tool documentation below are written for this software."""
 from __future__ import annotations

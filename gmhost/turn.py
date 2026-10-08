@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """One player turn, start to finish (engine §2 loop), with code in charge of the process.
 
 triage → LOAD → referee tool loop (model judges, host computes) → narrator → checker →

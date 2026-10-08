@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Application service: campaigns, the model, and the Game, behind one lock (single local user)."""
 from __future__ import annotations
 import json

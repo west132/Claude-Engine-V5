@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 from __future__ import annotations
 import argparse
 import sys

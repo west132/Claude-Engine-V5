@@ -3,6 +3,11 @@
 You need: a computer with **Python 3.11+**, a **model file** (downloaded once), and about 12–40 GB of free disk/RAM depending on the model.
 After the one-time setup the game runs fully offline.
 
+## Do I need administrator rights?
+**No.** Nothing is installed into Windows/macOS/Linux itself. Everything lives in this folder: the program, your stories and saves, the model file, and a private Python environment (`.venv`) that `start.sh` / `start.bat` create on first run. To remove it all, delete the folder.
+
+The one condition: **Python 3.11 or newer must already be on the computer** (the launcher uses it). If it is not, install Python for the current user only (the python.org installer has an “Install for me only / no admin” option), or ask whoever manages the machine. After that, the first run downloads two small packages into `.venv` (needs internet once), with no admin step. If `llama-cpp-python` has no ready-made package for your system it needs a C++ compiler, which usually does need setup — in that case use Option B below (Ollama or LM Studio, which normally install per-user).
+
 ## 1. Get the program
 Download or clone this repository. Everything (engine files, app, web page) is inside it.
 

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Semantic audit of a campaign state: rules the helper's `validate` does not check.
 
 `validate` proves a save is well-formed and nothing was dropped. This checks that the numbers obey the engine
