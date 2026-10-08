@@ -8,3 +8,4 @@ campaigns/*
 !campaigns/.gitkeep
 .pytest_cache/
 prefs.json
+playtest_report.md
