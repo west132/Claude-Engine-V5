@@ -34,7 +34,7 @@ It runs on your own computer with an AI model you download once. No account, no 
 ## Quick start
 
 1. Download this repository.
-2. Run **`start.bat`** (Windows) or **`./start.sh`** (macOS / Linux). The first time, it checks your computer, tells you what's missing, and asks whether you want to install each item yourself or let the program do it.
+2. Run **`start.bat`** (Windows) or **`./start.sh`** (macOS / Linux). The first time, it checks your computer, tells you what's missing, and asks how you want to run the AI (CPU test, online API, graphics card via LM Studio, or a local AI you already have), and whether to install each missing item yourself or let the program do it.
 3. Put your model file in the `models/` folder (or paste its download link into the app's *Computer check & setup* screen), then **New story** and pick a world.
 
 Full instructions, model sizes, phone access and troubleshooting are in **[INSTALL.md](INSTALL.md)**.
