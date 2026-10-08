@@ -104,6 +104,6 @@ class DemoBackend(Backend):
             if "ask" not in done:
                 return call("ask", question="Will she tell Rin more?", label="Nadia Voss",
                             settle_test="the board lists work but the innkeeper's own knowledge is not recorded, so it is open",
-                            likelihood=1, **{"for": ["she hears every caravan's news"], "against": []})
+                            likelihood=1, **{"for": ["she has talked with her brother every day"], "against": []})
             return close(True, "Nadia hesitates, then answers.", dialogue=[{"who": "Nadia Voss", "gist": "answers the question"}])
         return close(False, f"You {said or 'wait'}.")

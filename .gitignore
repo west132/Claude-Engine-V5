@@ -7,3 +7,4 @@ models/*
 campaigns/*
 !campaigns/.gitkeep
 .pytest_cache/
+prefs.json

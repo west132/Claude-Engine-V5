@@ -6,7 +6,7 @@ import shutil
 import threading
 from pathlib import Path
 
-from . import bgen, helper, saves
+from . import bgen, helper, i18n, saves
 from .campaign import Campaign, CampaignError
 from .config import Config, load_config
 from .llm import Backend, LLMError, make_backend
@@ -40,6 +40,25 @@ class App:
         except (LLMError, Exception) as e:               # the UI shows install help instead of crashing
             self.backend, self.game, self.model_error = None, None, str(e)
 
+    # ---- preferences (remembered across restarts and devices) ------------------------------------
+    @property
+    def _prefs_path(self) -> Path:
+        return self.cfg.root / "prefs.json"
+
+    def prefs(self) -> dict:
+        try:
+            d = json.loads(self._prefs_path.read_text(encoding="utf-8"))
+        except Exception:
+            d = {}
+        lang = d.get("language")
+        return {"language": i18n.normalize(lang or self.cfg.game.language), "language_set": lang in i18n.LANGUAGES}
+
+    def set_language(self, lang: str) -> dict:
+        if lang not in i18n.LANGUAGES:
+            raise CampaignError(f"language must be one of {list(i18n.LANGUAGES)}")
+        self._prefs_path.write_text(json.dumps({"language": lang}), encoding="utf-8")
+        return self.prefs()
+
     # ---- info -------------------------------------------------------------------------------
     def info(self) -> dict:
         return {"model": {"ready": self.game is not None, "name": getattr(self.backend, "name", None),
@@ -47,7 +66,8 @@ class App:
                           "error": self.model_error},
                 "engine": self.game.engine.version if self.game else None,
                 "campaigns": self.list_campaigns(), "current": self.camp.name if self.camp else None,
-                "defaults": {"language": self.cfg.game.language, "profile": self.cfg.game.profile, "encoding": self.cfg.game.encoding}}
+                "prefs": self.prefs(), "languages": i18n.LANGUAGES,
+                "defaults": {"language": self.prefs()["language"], "profile": self.cfg.game.profile, "encoding": self.cfg.game.encoding}}
 
     def list_campaigns(self) -> list[dict]:
         out = []
@@ -80,7 +100,9 @@ class App:
                 background_text = bgen.generate(self.backend, tmpl, premise, language or self.cfg.game.language, True, on_event)
             else:
                 bgen.check_background_text(background_text)
+            language = i18n.normalize(language or self.prefs()["language"])
             self.camp = Campaign.create(self.cfg, name, background_text, language, profile, encoding, fill)
+            self.set_language(language)
             return {"name": name}
 
     def unassigned(self, background_text: str) -> list[dict]:
@@ -133,7 +155,10 @@ class App:
         with self.lock:
             c = self.need()
             if profile in ("full", "lite"): c.readable["profile"] = profile; c.closed_readable["profile"] = profile
-            if language: c.readable["language"] = language; c.closed_readable["language"] = language
+            if language:
+                language = i18n.normalize(language)
+                c.readable["language"] = language; c.closed_readable["language"] = language
+                self.set_language(language)                       # the last selected language is the one remembered
             c.write_journal()
 
     def gm_log(self, spoilers: bool) -> str:

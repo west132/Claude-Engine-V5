@@ -50,9 +50,10 @@ def advance(t: dict, minutes: int, date: str | None = None, season: str | None =
     return new, rolled
 
 
-def date_label(t: dict) -> str:
+def date_label(t: dict, lang: str = "en") -> str:
     d = t.get("date")
-    return str(d) if d else f"Day {t.get('day_index', 0)}"
+    if d: return str(d)
+    return f"第 {t.get('day_index', 0)} 天" if str(lang).startswith("zh") else f"Day {t.get('day_index', 0)}"
 
 
 def clock_label(t: dict) -> str:
