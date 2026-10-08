@@ -224,3 +224,13 @@ def test_known_leads_use_only_what_the_player_knows(r120):
     out = "\n".join(leads.known_leads(r120))
     assert "known npcs/teodor_varga" in out and "Jo's blade" in out
     assert "locked_case_truths" not in out and "hidden" not in out.lower()
+
+
+def test_encoding_can_be_switched_mid_campaign_and_saves_stay_valid(cfg, camp):
+    app = App(cfg); app.camp = camp
+    app.set_options(encoding="b64")
+    assert camp.encoding == "b64"
+    with pytest.raises(Exception):
+        app.set_options(encoding="rot26")
+    r = saves.build_save(camp)
+    assert r["round"] == camp.rnd

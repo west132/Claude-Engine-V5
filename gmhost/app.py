@@ -151,9 +151,12 @@ class App:
         with self.lock:
             self.need_game().continue_unsaved(self.need())
 
-    def set_options(self, profile=None, language=None):
+    def set_options(self, profile=None, language=None, encoding=None):
         with self.lock:
             c = self.need()
+            if encoding is not None:                          # engine §8.1: on the player's request, from now on
+                if encoding not in ("plain", "b64", "rot13"): raise CampaignError("encoding must be plain, b64 or rot13")
+                c.session["encoding"] = encoding
             if profile in ("full", "lite"): c.readable["profile"] = profile; c.closed_readable["profile"] = profile
             if language:
                 language = i18n.normalize(language)
