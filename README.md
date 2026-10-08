@@ -1,4 +1,4 @@
-# Storyteller
+# AI GM Storyteller
 
 **A solo role-playing game where an AI is your game master, and a program keeps it honest.**
 
