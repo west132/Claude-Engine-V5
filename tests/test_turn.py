@@ -188,3 +188,39 @@ def test_access_token_gates_the_server(cfg, example_text):
     c = http.client.HTTPConnection("127.0.0.1", port); c.request("POST", "/api/save", "{}", {"X-GM": "1", "Content-Type": "application/json"})
     assert c.getresponse().status == 403
     httpd.shutdown()
+
+
+# ---- guidance turns: "what should I do" / bare "continue" must give a menu, never an invented action --------------
+def test_guidance_words_in_both_languages():
+    from gmhost import leads
+    for t in ["我要做什么", "我现在该做什么？", "接下来怎么办", "有什么线索吗", "what should I do?", "I'm stuck", "any hints"]:
+        assert leads.is_guidance(t), t
+    for t in ["我去找 Nadia 谈谈", "I walk to the door and continue north", "attack the wolf"]:
+        assert not leads.is_guidance(t) and not leads.is_bare_continue(t), t
+    for t in ["继续", "继续吧", "continue", "go on"]:
+        assert leads.is_bare_continue(t), t
+
+
+def test_guidance_turn_opens_no_round_and_ends_in_a_menu(cfg, camp):
+    game = Game(cfg, DemoBackend())
+    r0 = camp.rnd
+    for text in ("what should I do?", "continue"):
+        res = game.play(camp, text)
+        assert camp.rnd == r0 and res.round is None and not res.lines
+        assert res.decision and len(res.decision["options"]) >= 2
+        assert res.narration
+
+
+def test_continue_with_a_plan_in_force_is_not_a_guidance_turn(camp):
+    from gmhost import leads
+    camp.session["plan"] = "walk the route to the docks"
+    assert not leads.needs_guidance(camp, "continue")
+    camp.session["plan"] = ""
+    assert leads.needs_guidance(camp, "continue")
+
+
+def test_known_leads_use_only_what_the_player_knows(r120):
+    from gmhost import leads
+    out = "\n".join(leads.known_leads(r120))
+    assert "known npcs/nadia_voss" in out and "Nadia Voss" in out
+    assert "locked_case_truths" not in out and "hidden" not in out.lower()

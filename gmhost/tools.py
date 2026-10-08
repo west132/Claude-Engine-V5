@@ -931,6 +931,12 @@ def t_close(ctx: TurnCtx, a):
                         "corrected arguments (a dropped roll is a hidden success: I10). If it truly needs no roll, call close_round again.")
     if ctx.must_settle:
         raise ToolError("cannot close yet — settle these first:\n- " + "\n- ".join(ctx.must_settle.values()))
+    if ctx.guidance:
+        opts = (a.get("decision") or {}).get("options") or []
+        if a["opened_round"] or ctx.rolled or ctx.entries:
+            raise ToolError("this is a guidance turn: no round, no roll and no commit. Call close_round with opened_round=false.")
+        if len(opts) < 2:
+            raise ToolError("a guidance turn must end with `decision.options`: 3 to 6 options built from the KNOWN list only.")
     if ctx.stopped_for_odds and a["opened_round"]:
         raise ToolError("an odds-stop leaves the action unresolved: opened_round must be false")
     if a["opened_round"] is False and ctx.rolled:
