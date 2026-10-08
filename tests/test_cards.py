@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 from gmhost.cards import Engine, PLAIN_EXCLUDES
 
 

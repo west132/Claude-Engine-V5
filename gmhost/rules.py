@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Engine tables and derived values as code (engine §10.5, §11, §A). No judgement here."""
 from __future__ import annotations
 import json

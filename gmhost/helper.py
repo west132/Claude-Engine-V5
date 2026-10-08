@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Loads the engine's own stateless helper (engine/engine_math_v5_0.py) unmodified.
 
 The helper is the single authority for dice, check maths, XP, harm, merge and

@@ -1,0 +1,7 @@
+Copyright (c) 2026 West132.WL. All rights reserved.
+
+This software (the GM host program, its web interface, tests and documentation) is the work of West132.WL.
+No licence to copy, modify, distribute or use it is granted except by the copyright holder's written permission.
+
+Third-party components are not part of this repository and keep their own licences: Python, PyYAML, llama.cpp /
+llama-cpp-python, and any AI model file you download and place in models/ (check that model's own licence).

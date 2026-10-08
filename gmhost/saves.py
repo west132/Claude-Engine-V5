@@ -1,3 +1,4 @@
+# Copyright (c) 2026 West132.WL. All rights reserved.
 """Saving and loading (engine §16, SAVE_TEMPLATE). Code writes Part A, the helper builds Part B."""
 from __future__ import annotations
 import copy
