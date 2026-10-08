@@ -271,19 +271,19 @@ function drawer(){
 
 /* conversation */
 function userMsg(text){return `<div class="msg user"><div class="bubble">${esc(text)}</div></div>`}
-function botMsg(t){
+function botMsg(tn){
   let h='<div class="msg bot">';
-  const paras=(t.narration||'').split(/\n+/).filter(Boolean);
+  const paras=(tn.narration||'').split(/\n+/).filter(Boolean);
   if(paras.length)h+=`<div class="prose">${paras.map(p=>`<p>${esc(p)}</p>`).join('')}</div>`;
-  const rolls=(t.lines||[]).length, hasInfo=t.header||rolls||(t.status||[]).length||t.gm_delta;
+  const rolls=(tn.lines||[]).length, hasInfo=tn.header||rolls||(tn.status||[]).length||tn.gm_delta;
   if(hasInfo){
-    const zh=LANG==='zh_hans',label=[t.round!=null?(zh?`第 ${t.round} 回合`:`Round ${t.round}`):t('Details'),rolls?(zh?`${rolls} 次掷骰`:`${rolls} roll${rolls>1?'s':''}`):'',(t.status||[]).length?(zh?`${t.status.length} 项变化`:`${t.status.length} change${t.status.length>1?'s':''}`):''].filter(Boolean).join(' · ');
-    h+=`<details class="info"><summary>${esc(label)}</summary><div class="infobody">${t.header?`<div class="hdr">${esc(t.header)}</div>`:''}${rolls?`<pre>${esc(t.lines.join('\n'))}</pre>`:''}${(t.status||[]).length?`<div class="chips">${t.status.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}${t.gm_delta?`<pre>${esc(t.gm_delta)}</pre>`:''}</div></details>`;
+    const zh=LANG==='zh_hans',label=[tn.round!=null?(zh?`第 ${tn.round} 回合`:`Round ${tn.round}`):t('Details'),rolls?(zh?`${rolls} 次掷骰`:`${rolls} roll${rolls>1?'s':''}`):'',(tn.status||[]).length?(zh?`${tn.status.length} 项变化`:`${tn.status.length} change${tn.status.length>1?'s':''}`):''].filter(Boolean).join(' · ');
+    h+=`<details class="info"><summary>${esc(label)}</summary><div class="infobody">${tn.header?`<div class="hdr">${esc(tn.header)}</div>`:''}${rolls?`<pre>${esc(tn.lines.join('\n'))}</pre>`:''}${(tn.status||[]).length?`<div class="chips">${tn.status.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}${tn.gm_delta?`<pre>${esc(tn.gm_delta)}</pre>`:''}</div></details>`;
   }
-  if(t.decision)h+=`<div class="opts">${t.decision.options.map(o=>`<button data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
-  if(t.save){h+=t.save.failed?`<div class="note warn">${esc(t('The checkpoint save failed:'))} ${esc(t.save.failed)}<div class="opts"><button data-act="retry">Retry save</button><button data-act="unsaved">Continue unsaved (one more round)</button></div></div>`:`<div class="note">${esc(t('Checkpoint saved at round'))} ${t.save.round} (${esc(t.save.path.split(/[\\/]/).pop())}). ${esc(t('Carry on whenever you like.'))}</div>`}
-  (t.warnings||[]).forEach(w=>h+=`<div class="note">${esc(w)}</div>`);
-  if(t.ended)h+='<div class="note warn">'+esc(t('Your character has died. Open an earlier save to continue.'))+'</div>';
+  if(tn.decision)h+=`<div class="opts">${tn.decision.options.map(o=>`<button data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
+  if(tn.save){h+=tn.save.failed?`<div class="note warn">${esc(t('The checkpoint save failed:'))} ${esc(tn.save.failed)}<div class="opts"><button data-act="retry">Retry save</button><button data-act="unsaved">Continue unsaved (one more round)</button></div></div>`:`<div class="note">${esc(t('Checkpoint saved at round'))} ${tn.save.round} (${esc(tn.save.path.split(/[\\/]/).pop())}). ${esc(t('Carry on whenever you like.'))}</div>`}
+  (tn.warnings||[]).forEach(w=>h+=`<div class="note">${esc(w)}</div>`);
+  if(tn.ended)h+='<div class="note warn">'+esc(t('Your character has died. Open an earlier save to continue.'))+'</div>';
   return h+'</div>';
 }
 function add(html){col().insertAdjacentHTML('beforeend',html);scroll()}
@@ -300,7 +300,7 @@ function pendingOdds(){add('<div class="opts"><button data-opt="go — roll as s
 async function run(fn,label){busy=true;render();try{const t=await fn();done();if(t){t.player=label;col().querySelector('.pending')?.remove();addTurn(t)}await refresh()}catch(e){done();add(`<div class="note warn">${esc(e.message)}</div>`);await refresh().catch(()=>{})}finally{busy=false;render()}}
 async function send(text){text=(text||$('#inp').value).trim();if(!text||busy)return;$('#inp').value='';grow();
   add(`<div class="pending">${userMsg(text)}</div>`);
-  await run(async()=>{const t=await stream('/api/play',{text},ev=>ev.text&&working(ev.text)||ev.type==='step'&&working(t('Working')+': '+ev.tool.replace(/_/g,' ')));col().querySelector('.pending')?.remove();return t},text);
+  await run(async()=>{const r=await stream('/api/play',{text},ev=>ev.text&&working(ev.text)||ev.type==='step'&&working(t('Working')+': '+ev.tool.replace(/_/g,' ')));col().querySelector('.pending')?.remove();return r},text);
   if(snap?.status.pending_odds)pendingOdds()}
 function grow(){const t=$('#inp');t.style.height='26px';t.style.height=Math.min(200,t.scrollHeight)+'px'}
 $('#inp').addEventListener('input',grow);

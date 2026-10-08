@@ -145,3 +145,18 @@ def test_mode1_cpu_test_needs_engine_and_model(tmp_path, monkeypatch):
     answers = iter(["1", "3", ""])
     code = setup_wizard.run(tmp_path, ask=lambda q: next(answers), say=out.append)
     assert code == 1 and not (tmp_path / "config.toml").exists() and "CPU test" in "\n".join(out)
+
+
+def test_auto_backend_finds_a_running_local_server(cfg, monkeypatch):
+    from gmhost import llm
+    url = _models_url()
+    cfg.model.backend, cfg.model.base_url, cfg.model.model = "auto", url, ""
+    b = llm.make_backend(cfg)
+    assert b.model == "qwen-14b" and b.base == url
+
+
+def test_auto_backend_explains_when_nothing_is_running(cfg):
+    from gmhost import llm
+    cfg.model.backend, cfg.model.base_url, cfg.model.model = "auto", "http://127.0.0.1:1/v1", ""
+    with pytest.raises(llm.LLMError, match="LM Studio"):
+        llm.make_backend(cfg)
