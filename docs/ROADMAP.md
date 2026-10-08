@@ -14,7 +14,7 @@ Not every NPC is worth a model call. Three tiers, decided by code, not by the AI
 
 | Tier | Who | Treatment |
 |---|---|---|
-| Principals | The main NPCs built in the BACKGROUND (the recorded ones) | Own agent when they act or speak, plus off-screen plans advanced when time passes |
+| Principals | The NPCs marked as main in the BACKGROUND (see "Who is a main NPC" below) | Own agent when they act or speak, plus off-screen plans advanced when time passes |
 | Of interest | NPCs the player character shows interest in: asked about, spoken to repeatedly, investigated, followed, named in the player's actions | Promoted to an agent after code sees enough interest (a simple counter, or the player says so). Promotion creates a proper NPC record |
 | Everyone else | Crowds, clerks, passers-by | No agent. The referee and narrator handle them in the scene |
 
@@ -74,10 +74,12 @@ The engine was written for a chat page, where one AI does everything. These are 
 - It also settles injuries on incidental actors: they are ordinary NPCs, so the dying rule applies and no record is needed.
 - To confirm when this is built: that the engine's existing one-hour 2d10 roll (wake at 1 HP on 11+, else die) stays as the rule after the hour.
 
+**2b. Who is a main NPC.** The engine has no such mark. §13.1 keeps a persistent record for any NPC who "recurs or matters", which includes minor ones, so "recorded" is not the same as "main". Both the death-protection setting and the role-agent tiers need an explicit field, for example `importance: main` on an NPC in the BACKGROUND, set by the author or by the generator at world creation. Without it, "important NPC" would wrongly cover every recorded NPC.
+
 **3. Saves.**
 - Keep the readable text save and capsule as the export and exchange format, because it is what chat saves and your 120-round campaign use.
-- Under it, keep a structured save that the host owns: JSON or SQLite with a schema version, a checksum, safe writing (write to a temporary file, then replace) and automatic backups. Industry practice for game saves is a versioned structured format with migrations, plus backups, and that is what this adds.
-- "As detailed as possible" is best met by the history, not by a bigger text save: every round's rolls, GM-Δ, narration and tool results. That is what makes undo, replay and audits possible. The host already keeps a journal per round; this would make it a documented format.
+- Under it, keep a structured save that the host owns. Today `journal.json` is written after every turn and replaced safely (written to a temporary file first). It holds the current state, the GM-Δ chain and the pending entries, plus only the last 40 chat messages. Missing: a schema version, a checksum, automatic backups, and a per-round history. Industry practice for game saves is a versioned structured format with migrations, plus backups, and that is what this adds.
+- "As detailed as possible" is best met by the history, not by a bigger text save: every round's player message, tool calls with their dice results, GM-Δ, narration and a snapshot of the state. That is what makes undo, replay and audits possible, and the journal does not keep it today.
 - The text save keeps the engine's rule that nothing is held twice and no fact exists only in the save.
 
 **4. Capsule scanner and explicit markers.**
@@ -91,7 +93,7 @@ The engine was written for a chat page, where one AI does everything. These are 
 - Tier boosts for gear are already a table (§B).
 - ENCODING is opt-in and hides capsule and GM-Δ records from a player reading the save, which still matters in software.
 - PROFILE lite is an output-length choice for the player, not a workaround for context size.
-- Checkpoints every 10 rounds also drive the review rules (dues, audit at R20, R40). The host already autosaves a journal each round, so the only open question is whether the review cycle should stay at 10 rounds.
+- Checkpoints every 10 rounds also drive the review rules (dues, audit at R20, R40). The host already writes its journal after each turn, so the only open question is whether the review cycle should stay at 10 rounds.
 
 ### Size
 
@@ -101,6 +103,30 @@ The engine and AI rules together are about 85,000 characters (about 21,000 token
 
 - Undo and replay from a save is not built. The journal makes it possible; the engine should define what is rolled back.
 - A few rarely used engine options are not covered by the host. I have not listed them yet; that needs a pass through the engine against the tool list.
+
+### Not an issue (West132.WL)
+
+- Migrating saves older than v5.0 (§16.5). Only v5.0 saves matter.
+- Module C, bounded scenario endings. Not used by the example worlds; it can stay as written.
+
+### Planned fixes
+
+**A. Revising generated Round-0 truth (§16.6).** The rule: a fact the AI generated for the BACKGROUND may be revised while it is still provisional, for a world reason, but never once established, and never to help or hurt the player.
+- **Mark the origin.** When a world is created, the host records whether the BACKGROUND is authored (the person wrote it), generated, or mixed. An authored one changes only when the person changes it. In generated or mixed ones, everything the person did not request is provisional.
+- **Track what is established.** The host keeps a status per field: provisional or established. A field becomes established when the player observes it or learns it, when a roll, an actor's decision, evidence, a payout or a committed fact uses it, or when the person confirms it. Code can detect this from the ledger entries and tool calls that name the field. When code cannot tell, it treats the field as established, which is the safe side.
+- **A `revise_round0` tool for the referee.** Arguments: the field, the new value, the reason. The code refuses unless the field is provisional, the reason is one the engine allows (contradicts canon or anchors or another fact; implausible for its place, actor or band; forces later invention; the person asked), and no unresolved roll is bound to it. The reasons the engine forbids are not selectable: the player's plan, danger, pacing, or a player theory. The smallest change that fixes the problem is the one accepted.
+- **Recording.** Before the first round, the BACKGROUND file is rewritten. After that, the file stays and the host writes one ledger entry: `+ continuity_status.round0_revisions.<field> :: was <was> → now <now> — <reason> (R<round>)`. The overlay applies it.
+- **The person can ask.** An "Edit the world" screen lists provisional fields only, and asks the person to confirm. Established facts change only in the story, or through the correction in B.
+
+**B. Repairing a GM error: undo and replay (§16.7).** The rule: a real GM error is repaired; a risky choice that lost, or an unfavourable roll, stands. The player never pays for a cost the engine caused.
+- **Record each round in full.** The structured history keeps, per round: the player's message, each tool call with its arguments and dice results, the entries committed, the narration, and a snapshot of the state after the round closed. Nothing else is needed to rebuild a round.
+- **Report.** A "Something is wrong" button lets the player name the round and describe the problem. `audit` findings can raise the same report automatically.
+- **Decide.** The referee classifies it as a GM error or as a rule working as written, using the engine's own lists (§16.7). The player sees the verdict and can accept it or ask to reload. Code never lets the AI quietly dismiss a report.
+- **Repair without replay.** If no later outcome changed, one correction entry is written in place and play continues.
+- **Repair with replay.** If a later outcome changed: restore the snapshot of the round before the earliest changed one; replay the player's later messages from there. Rounds reuse their numbers (§8). A roll whose bound context the fix did not change keeps its recorded dice and result (invariant I10); a roll whose context did change is rolled fresh. Narration is regenerated.
+- **Chain and saves.** The host owns the GM-Δ chain, so it cuts the chain at the restore point and re-emits the entries that still hold. This is equivalent to the engine's voiding rule (a block with a round at or before an earlier block voids it). Saves written after the restore point stop being the newest valid save. The host adds `continuity_status.player_corrected.<round> :: <error> → <fix>` and shows one line (restore point, fix).
+- **Build order.** First the per-round history (needed for the structured save anyway), then in-place correction, then rollback and replay, then the button and the verdict screen.
+- **Test.** Replay your 120-round campaign, inject a deliberate error at one round, repair it, and confirm the later saves match what the engine's rules say they should.
 
 ### Order
 
