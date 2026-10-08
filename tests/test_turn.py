@@ -222,5 +222,5 @@ def test_continue_with_a_plan_in_force_is_not_a_guidance_turn(camp):
 def test_known_leads_use_only_what_the_player_knows(r120):
     from gmhost import leads
     out = "\n".join(leads.known_leads(r120))
-    assert "known npcs/nadia_voss" in out and "Nadia Voss" in out
+    assert "known npcs/orin_sable" in out and "phoned with an offer" in out
     assert "locked_case_truths" not in out and "hidden" not in out.lower()
