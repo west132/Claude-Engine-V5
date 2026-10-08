@@ -1,0 +1,4 @@
+# Required
+pyyaml>=6.0
+# Local model runtime (only if you use a .gguf file from models/). See INSTALL.md for prebuilt-wheel options.
+llama-cpp-python>=0.3.0

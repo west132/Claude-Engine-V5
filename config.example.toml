@@ -1,0 +1,24 @@
+# Copy to config.toml to change anything. Every value shown is the default.
+
+[model]
+backend = "auto"        # auto: use a .gguf in models/ if present | llama_cpp | openai (Ollama / LM Studio / llama-server) | mock (demo stand-in)
+path = ""               # blank = first .gguf found under models/
+n_ctx = 32768           # the engine rules alone need ~12k tokens; 32768 recommended
+n_gpu_layers = -1       # -1 = offload as much as fits on the GPU; 0 = CPU only
+n_threads = 0           # 0 = automatic
+max_new_tokens = 2048
+
+# only for backend = "openai"
+base_url = "http://127.0.0.1:11434/v1"   # Ollama default; LM Studio: http://127.0.0.1:1234/v1
+model = ""                               # the model name your server uses
+api_key = ""
+
+[game]
+language = "en"         # en, zh_hans, zh_hant, ja, ko, es, fr, de, ru, pt, it, ms ... (any code; the model must know it)
+profile = "full"        # full | lite  (output length only)
+encoding = "plain"      # plain | b64 | rot13 : how hidden state is written in saves (spoiler protection)
+narration_retries = 2
+
+[server]
+host = "127.0.0.1"
+port = 8765
