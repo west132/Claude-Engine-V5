@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+config.toml
+models/*
+!models/README.md
+campaigns/*
+!campaigns/.gitkeep
+.pytest_cache/
