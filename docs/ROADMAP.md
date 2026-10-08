@@ -64,14 +64,15 @@ The engine was written for a chat page, where one AI does everything. These are 
 - Floor rule: powers are costed by their own tier, not by the player's level, and the engine must guarantee that a low-tier power stays castable by a higher-level player (for example: any caster can always afford at least a few uses of a power at or below their tier).
 - `draws_mp` should list skill ids so there is no guessing.
 
-**2. Death at 0 HP (borrowed in part from Skyrim, then revised).** Three cases, in order of who caused the harm:
-- **Anyone the player character tries to kill or attack has no buffer.** No protection mark, however important. Choices have consequences, even if the NPC's mission fails (the engine tracks that as a failed or blocked quest).
-- **Other cases at 0 HP, for an important NPC** (hurt by someone else, a hazard, an accident): the game rolls once, yes or no.
-  - **No:** the NPC survives, down and out for now.
-  - **Yes:** the NPC is dying and waits for help for a short, fixed time, then dies if nobody helps. The player and others get a real chance to act, because it is not logical for an important character to die with no choices.
+**2. Death at 0 HP, with a switch for important NPCs.** No extra dice. Two settings, chosen in the world settings and asked again at the start of a game:
+- **Protect important NPCs: open or closed.** "Important" means the main NPCs recorded in the BACKGROUND. Default for existing worlds: closed, so they behave as today.
+  - **Open:** an important NPC at 0 HP is down, not dead, and keeps the one-hour window that the engine already has. Help or treatment within that hour stabilises them; the engine's existing rule decides what happens if none comes (§10.5). The mission still counts as open, so the story can go on.
+  - **Closed:** an important NPC is treated like everyone else.
+- **The player's choice overrides protection: yes or no. Default yes.** With yes, anyone the player character tries to attack or kill has no buffer, however important, even when protection is open. The mission fails if they die (the engine records that). With no, protection also holds against the player.
 - **Everyone else at 0 HP is dying** and is killed unless someone helps at once.
-- **Notes for building it.** The roll must be made by the helper and printed like every other roll (for example with `ask`), never decided by the AI. "Short time" needs a number (the engine's current rule is one hour, which is too long for this). "Important NPC" means one recorded in the BACKGROUND as main; the player's own character is not covered by the yes/no roll. The README line "Nobody has plot armour" stays true for attacks by the player. Make it an opt-in world setting so existing worlds behave as before.
+- The player's own character is not covered by these settings.
 - It also settles injuries on incidental actors: they are ordinary NPCs, so the dying rule applies and no record is needed.
+- To confirm when this is built: that the engine's existing one-hour 2d10 roll (wake at 1 HP on 11+, else die) stays as the rule after the hour.
 
 **3. Saves.**
 - Keep the readable text save and capsule as the export and exchange format, because it is what chat saves and your 120-round campaign use.
