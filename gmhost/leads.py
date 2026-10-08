@@ -68,14 +68,52 @@ def known_leads(camp, tree: dict | None = None) -> list[str]:
     return out
 
 
-def guidance_directive(camp, text: str, tree: dict | None = None) -> str:
-    leads = known_leads(camp, tree)
-    return ("GUIDANCE TURN (engine §13.6 STUCK; the player owns intent, §7). The player asked what to do or said 'continue' with nothing in progress.\n"
-            "- Do NOT act for the player character, move them, finish their work, or advance time. Roll nothing. Commit nothing.\n"
-            "- Call close_round with opened_round=false. `visible` = 1-3 plain sentences restating where the character is, the time, and what is "
-            "going on right now, using only facts already in the state below.\n"
-            "- `decision` = {question: 'What do you want to do?', options: 3 to 6 numbered-style options}. Each option says WHAT, WHERE/WHO, and the "
-            "rough cost or risk, built ONLY from the KNOWN list below. No hidden route, no new fact, no new person or place (I9). "
-            "It is a menu, not a limit: free wording stays a normal action.\n"
-            "- If the known list holds almost nothing, offer the obvious ordinary things the character could do from here and say plainly that no "
-            "lead is pending.\n\nKNOWN TO THE PLAYER (the only facts you may use):\n" + ("\n".join(f"- {l}" for l in leads) or "- (nothing recorded)"))
+_CUES = re.compile(r"offer|phoned|texts?\b|calls?\b|owes?\b|wants?\b|forging|results|recover|appointment|deadline|\bdue\b|pending|waiting|arrang|missing|looking for|sells|commission", re.I)
+_DEAD = re.compile(r"killed|\bdead\b|died|arrested|job done|found;", re.I)
+
+
+def options(camp, tree: dict | None = None, limit: int = 6) -> list[str]:
+    """The menu, built in code from what the player knows: open quests, open obligations, then the people the character knows who
+    have something pending. Every option is taken from a recorded line, so none can be invented (I9)."""
+    from . import i18n
+    tree = tree if tree is not None else camp.tree()
+    zh, g = camp.language == "zh_hans", camp.glossary()
+    out = []
+    for qid, q in (tree.get("quests") or {}).items():
+        if isinstance(q, dict) and _text(q.get("status")).strip().lower().startswith("active") and q.get("objective"):
+            out.append((f"我继续推进任务：{q['objective']}" if zh else f"I carry on with the quest: {q['objective']}"))
+    for oid, o in (tree.get("rights_obligations") or {}).items():
+        st = (o.get("state") if isinstance(o, dict) else None) or {}
+        if isinstance(st, dict) and st.get("next") and _is_open(st.get("status")):
+            out.append(f"我处理：{_text(st['next'])[:120]}" if zh else f"I deal with this: {_text(st['next'])[:120]}")
+    people = list(((camp.readable.get("index") or {}).get("npcs") or {}).items())
+    ranked = []
+    for pos, (iid, line) in enumerate(people):
+        line = _text(line)
+        if _DEAD.search(line) or not _is_open(line): continue
+        ranked.append((0 if _CUES.search(line) else 1, -pos, iid, line))
+    for _, _, iid, line in sorted(ranked):
+        if len(out) >= limit: break
+        name, _, note = line.partition(" — ")
+        name = i18n.glossary_form(g, iid, name.strip()) if zh else name.strip()
+        out.append((f"我去找 {name}" + (f"（{note[:90]}）" if note else "")) if zh else (f"I follow up with {name}" + (f" ({note[:90]})" if note else "")))
+    if not out:
+        out = ["我先环顾四周，看看情况", "我先休息，等等看有什么动静"] if zh else ["I look around and take stock of where I am", "I rest and wait to see what turns up"]
+    return out[:limit]
+
+
+def menu(camp, tree: dict | None = None) -> dict:
+    """A guidance turn answered entirely by code: where you are, when it is, and what you know you could pursue."""
+    from . import i18n, timeutil
+    zh = camp.language == "zh_hans"
+    loc = camp.readable["world_state"].get("location")
+    place = i18n.glossary_form(camp.glossary(), str(loc), camp.location_name()) if zh else camp.location_name()
+    when = f"{timeutil.date_label(camp.time, camp.language)} {timeutil.clock_label(camp.time)}"
+    if zh:
+        text = f"你在{place}。现在是 {when}。\n没有什么事情逼着你做。下面是你已知、可以去做的事；你也可以直接输入自己想做的事。"
+        question = "你想做什么？"
+    else:
+        text = (f"You are at {place}. It is {when}.\nNothing is forcing your hand. Here is what you know you could pursue; "
+                "or type anything else you want to do.")
+        question = "What do you want to do?"
+    return {"narration": text, "decision": {"question": question, "options": options(camp, tree)}}

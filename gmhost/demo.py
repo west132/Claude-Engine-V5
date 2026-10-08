@@ -65,12 +65,6 @@ class DemoBackend(Backend):
             if nm:
                 return call("commit", entries=[{"op": "~", "id": f"{nm.group(1)}.{nm.group(2)}.state.due", "content": "none (incidental)", "hidden": True}])
         def close(opened, *visible, **kw): return call("close_round", opened_round=opened, visible=list(visible), **kw)
-        if "GUIDANCE TURN" in first:
-            known = [l.split(": ", 1)[-1] for l in re.findall(r"^- (known [^\n]+|open [^\n]+)", first, re.M)][:3]
-            opts = [f"Follow up: {k[:70]}" for k in known] or ["Look around where you are"]
-            opts += ["Rest and wait for something to turn up", "Do something else (say what)"]
-            return close(False, f"You are at {loc.replace('_', ' ')}. Nothing is pressing right now.",
-                         decision={"question": "What do you want to do?", "options": opts[:5]})
         if first.startswith("NEW GAME"):
             return close(False, f"It is early. You are at {loc.replace('_', ' ')}.", "The room is warm and noisy.")
         if any(w in said for w in ("shoot", "attack", "fight", "hit ", "stab")):
