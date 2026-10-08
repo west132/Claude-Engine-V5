@@ -44,3 +44,39 @@ Not every NPC is worth a model call. Three tiers, decided by code, not by the AI
 2. Interest counter and promotion of NPCs the player cares about.
 3. World agent when time advances.
 4. Parallel calls, if the backend supports them.
+
+## Engine changes for software use (proposed, to decide)
+
+The engine was written for a chat page, where one AI does everything. These are the places where I found, by reading the engine and running it against your 120-round campaign, that a software edition could be clearer or safer. Each item says what I checked. The five files in `engine/` stay untouched until you approve a new version.
+
+### Gaps in the engine text
+
+- **Round header wording per language.** AI_RULES says the round header is written in the game language, and the glossary covers names, terms and roll bands, but nothing defines the header's own words (ROUND, saved, save). The host picked 第 N 回合 / 已存 / 下次存档 itself. Add these labels to the glossary.
+- **Which skill draws MP.** §10.5 sets max MP from "the best MP-drawing skill", and the BACKGROUND only lists `mp_powers.draws_mp` as free text. Nothing says how a skill is marked as MP-drawing, so the host matches names against skill ids and ability text. Add an explicit link, for example `draws_mp` holding skill ids.
+- **Injury on an unrecorded actor.** §10.5 says a hit of half max HP or more, or reaching 0 HP, adds an injury record with a home and effect. §13.1 says incidental actors have no persistent record. The text does not say what happens when an incidental actor takes such a hit. State it (for example: no record, the effect lasts for the scene).
+- **Readable lint does not check types.** `validate` checks enum values, duplicate keys, missing NPC identity fields and injuries without a home. It does not check that numeric or date fields actually hold numbers or dates. Your imported chat saves had words in such fields, which the host repairs on import. Add type checks to the lint.
+- **Capsule scanner reads `id:` as a record.** The helper treats a line that starts with `id:` as a capsule record. The save template avoids this by writing `background_ref: {id: }` on one line; I confirmed that writing it on two lines is read as a record named after the id. Make the scanner stricter or say so in the template.
+
+### Already covered (checked, so no change proposed)
+
+- The helper's `--brief` lines are copied verbatim (AI_RULES). Only the round header is composed by the GM.
+- The glossary already holds names, terms and roll bands per language.
+- Tier boosts for gear are already a table (§B).
+- ENCODING is opt-in and hides capsule and GM-Δ records from a player reading the save, which still matters in software.
+- PROFILE lite is an output-length choice for the player, not a workaround for context size.
+- Checkpoints every 10 rounds also drive the review rules (dues, audit at R20, R40). The host already autosaves a journal each round, so the only open question is whether the review cycle should stay at 10 rounds.
+
+### Size
+
+The engine and AI rules together are about 85,000 characters (about 21,000 tokens). The part always sent is about 6,000 tokens (Part 0, AI rules §1-2 and the routing table); the rest is routed per turn. No change proposed unless a 7B+ test shows the turn overflowing 32K.
+
+### Game design
+
+- Undo and replay from a save is not built. The journal makes it possible; the engine should define what is rolled back.
+- A few rarely used engine options are not covered by the host. I have not listed them yet; that needs a pass through the engine against the tool list.
+
+### Order
+
+1. Decide which of these changes you want in a new engine version.
+2. Update the host to match, keeping v5.0 saves importable.
+3. Re-run the replay test on your real 120-round campaign. It must still reproduce every save.
