@@ -164,6 +164,11 @@ class App:
                 self.set_language(language)                       # the last selected language is the one remembered
             c.write_journal()
 
+    def prompts_file(self) -> Path:
+        p = self.need().work / "last_turn_prompts.md"
+        if not p.exists(): raise CampaignError("nothing sent to the AI yet: play a turn first")
+        return p
+
     def gm_log(self, spoilers: bool) -> str:
         c = self.need()
         out = []

@@ -8,6 +8,7 @@ import mimetypes
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -76,12 +77,15 @@ def make_handler(app: App):
 
         def _json(self, obj, code=200):
             data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
-            self.send_response(code)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.send_response(code)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
+            except _ABORTED:
+                pass                                    # the browser left (reload, double click): nothing to tell it
 
         def _body(self) -> dict:
             n = int(self.headers.get("Content-Length") or 0)
@@ -100,7 +104,7 @@ def make_handler(app: App):
                 emit({"type": "done", "payload": fn(emit)})
             except (CampaignError, TurnError, LLMError, ValueError, KeyError) as e:
                 emit({"type": "error", "message": str(e)})
-            except (BrokenPipeError, ConnectionResetError):
+            except _ABORTED:
                 pass
             except Exception as e:
                 emit({"type": "error", "message": f"{type(e).__name__}: {e}"})
@@ -108,6 +112,8 @@ def make_handler(app: App):
         def _guard(self, fn):
             try:
                 fn()
+            except _ABORTED:
+                pass
             except (CampaignError, TurnError, LLMError, ValueError, KeyError) as e:
                 self._json({"error": str(e)}, 400)
             except Exception as e:
@@ -142,7 +148,7 @@ def make_handler(app: App):
             if path.startswith("/api/download/"):
                 def dl():
                     name = path.rsplit("/", 1)[1]
-                    p = app.background_file() if name == "background" else app.save_file(name)
+                    p = app.background_file() if name == "background" else app.prompts_file() if name == "prompts" else app.save_file(name)
                     data = p.read_bytes()
                     self.send_response(200)
                     self.send_header("Content-Type", "text/markdown; charset=utf-8")
@@ -215,6 +221,18 @@ def make_handler(app: App):
     return H
 
 
+_ABORTED = (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)
+
+
+class _Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], _ABORTED):     # a browser closed its connection mid-reply: harmless, no traceback
+            return
+        super().handle_error(request, client_address)
+
+
 def serve(cfg: Config, port: int | None = None, open_browser: bool = True, app: App | None = None,
           tailscale: bool | None = None, host: str | None = None):
     app = app or App(cfg)
@@ -225,7 +243,7 @@ def serve(cfg: Config, port: int | None = None, open_browser: bool = True, app: 
         ts = tailscale_ip()
         if ts: hosts.append(ts)
         else: print("NOTE: --tailscale given but no Tailscale address found (is Tailscale running?). Serving locally only.")
-    servers = [ThreadingHTTPServer((h, port), make_handler(app)) for h in dict.fromkeys(hosts)]
+    servers = [_Server((h, port), make_handler(app)) for h in dict.fromkeys(hosts)]
     for h in dict.fromkeys(hosts):
         print(f"GM host running at http://{h}:{port}/")
     if len(servers) > 1 and not cfg.server.token:

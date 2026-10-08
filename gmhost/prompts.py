@@ -203,12 +203,14 @@ def narrator_system(eng: Engine) -> str:
 
 
 def narrator_user(camp: Campaign, text: str, visible: list[str], dialogue: list[dict], results: list[str],
-                  learned: list[str], decision: dict | None, prev: str, lite: bool, retry_issues: list[str] | None) -> str:
+                  learned: list[str], decision: dict | None, prev: str, lite: bool, retry_issues: list[str] | None,
+                  recap: bool = False) -> str:
     th = camp.readable["narrative_theme"]["current"]
     p = camp.player
     parts = [
         f"GAME LANGUAGE: {lang_name(camp.language)}",
-        f"LENGTH: " + ("at most ~120 words unless a real decision, fight or reveal needs more" if lite else "as long as the material change deserves; compress routine"),
+        f"LENGTH: " + ("A RECAP of what the player already knows: 5 to 9 short sentences in the order given, past tense, only these facts, "
+                       "nothing new and nothing the character does now. Do not end with a question." if recap else "at most ~120 words unless a real decision, fight or reveal needs more" if lite else "as long as the material change deserves; compress routine"),
         f"THEME (style only): tone {th.get('tone')}; style {th.get('style')}",
         f"PLAYER CHARACTER: {p.get('identity', {}).get('name')} — {p.get('archetype', '')}",
         f"SCENE: {timeutil.date_label(camp.time)} {timeutil.clock_label(camp.time)}, {camp.location_name()}",

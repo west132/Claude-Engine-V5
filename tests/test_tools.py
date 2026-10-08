@@ -1,4 +1,6 @@
 # Copyright (c) 2026 West132.WL. All rights reserved.
+import json
+
 import pytest
 
 from gmhost import schema as sch
@@ -301,3 +303,16 @@ def test_ask_facts_must_be_sentences_not_keywords(ctx):
     with pytest.raises(ToolError, match="sentence"):
         call(ctx, "ask", question="Will Nadia tell Rin more?", settle_test="record does not say whether she holds anything back",
              label="Nadia Voss", likelihood=1, **{"for": ["important"], "against": []})
+
+
+def test_commit_refuses_invented_records(cfg, r120):
+    """A small model once invented quests.varga_meeting and then edited fields under it (seen with a real 14B model)."""
+    from gmhost.tools import REGISTRY
+    ctx = TurnCtx(r120, "x")
+    with pytest.raises(ToolError, match="no record"):
+        REGISTRY["commit"].fn(ctx, {"entries": [{"op": "~", "id": "quests.varga_meeting.status.segments.0.status", "content": "complete"}]})
+    with pytest.raises(ToolError, match="a quest needs"):
+        REGISTRY["commit"].fn(ctx, {"entries": [{"op": "+", "id": "quests.varga_meeting", "content": json.dumps({"name": "Forge Jo's Blade", "type": "side", "status": "active"})}]})
+    ok = {"role": "SIDE", "type": "SHORT", "source_ref": "teodor_varga", "objective": "Finish Jo's blade", "status": "active"}
+    REGISTRY["commit"].fn(ctx, {"entries": [{"op": "+", "id": "quests.varga_blade_quest", "content": json.dumps(ok)}]})
+    REGISTRY["commit"].fn(ctx, {"entries": [{"op": "~", "id": "npcs.teodor_varga.state.status", "content": "at the forge"}]})

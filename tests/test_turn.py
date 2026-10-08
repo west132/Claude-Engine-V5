@@ -258,3 +258,30 @@ def test_encoding_can_be_switched_mid_campaign_and_saves_stay_valid(cfg, camp):
         app.set_options(encoding="rot26")
     r = saves.build_save(camp)
     assert r["round"] == camp.rnd
+
+
+def test_recap_question_is_answered_from_what_the_player_knows(cfg, r120):
+    from gmhost import leads
+    facts = "\n".join(leads.recap_facts(r120))
+    assert "calloway_lockup" in facts or "lock-up" in facts and "2026-10-31" in facts
+    for secret in ("loosen one Southport outfall mesh panel", "Surveyor", "keep quiet for Rusk"):      # plans and truths are never recapped
+        assert secret not in facts
+    b = scripted("You opened Frank Calloway's lock-up with Irene and the job closed.", OK)
+    res = Game(cfg, b).play(r120, "120发生了什么，我现在要干什么")
+    assert "lock-up" in res.narration and res.decision and len(res.decision["options"]) >= 2
+    assert res.round is None and not res.lines
+
+
+def test_recap_alone_has_no_menu_and_no_round(cfg, r120):
+    b = scripted("A short recap.", OK)
+    res = Game(cfg, b).play(r120, "what happened so far?")
+    assert res.decision is None and res.round is None and "recap" in res.narration.lower()
+
+
+def test_last_turn_prompts_are_kept_so_the_user_can_see_what_the_ai_got(cfg, camp):
+    b = scripted(TRIAGE, step("close_round", opened_round=False, visible=["You look around."]), "You look around the workshop.", OK)
+    Game(cfg, b).play(camp, "I look around")
+    text = (camp.work / "last_turn_prompts.md").read_text(encoding="utf-8")
+    assert "Call 1" in text and "PLAYER SAYS: I look around" in text and "the engine rules quoted verbatim" in text
+    app = App(cfg); app.camp = camp
+    assert app.prompts_file().name == "last_turn_prompts.md"

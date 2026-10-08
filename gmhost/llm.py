@@ -87,6 +87,24 @@ class LlamaCppBackend(Backend):
             return strip_think(r["choices"][0]["message"]["content"] or "")
 
 
+def loaded_context(base_url: str, model: str, api_key: str = "") -> int | None:
+    """The context length LM Studio really loaded the model with (its default is small, and a prompt longer than that is silently cut
+    from the start, which would drop the engine rules). None when the server does not say (Ollama, llama-server, an online API)."""
+    root = base_url.rstrip("/")
+    root = root[:-3] if root.endswith("/v1") else root
+    req = urllib.request.Request(root + "/api/v0/models", headers={"Authorization": f"Bearer {api_key}"} if api_key else {})
+    try:
+        with urllib.request.urlopen(req, timeout=3) as r:
+            rows = json.loads(r.read().decode("utf-8")).get("data", [])
+    except Exception:
+        return None
+    for m in rows:
+        if m.get("id") == model and m.get("loaded_context_length"):
+            return int(m["loaded_context_length"])
+    loaded = [int(m["loaded_context_length"]) for m in rows if m.get("state") == "loaded" and m.get("loaded_context_length")]
+    return min(loaded) if len(loaded) == 1 else None
+
+
 class OpenAICompatBackend(Backend):
     name = "openai"
 
@@ -95,6 +113,9 @@ class OpenAICompatBackend(Backend):
         self.model = cfg.model.model
         self.key = cfg.model.api_key
         self.n_ctx = cfg.model.n_ctx
+        real = loaded_context(self.base, self.model, self.key)
+        self.loaded_ctx = real
+        if real: self.n_ctx = min(self.n_ctx, real)        # trust what the server really loaded, not what config.toml hopes for
         self._schema_mode = "json_schema"      # degrades to json_object, then to none
 
     def _post(self, payload: dict, stream: bool):

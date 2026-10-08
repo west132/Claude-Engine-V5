@@ -79,6 +79,7 @@ def gm_view(block: Block) -> str:
 class Game:
     def __init__(self, cfg: Config, backend: Backend):
         self.cfg, self.backend = cfg, backend
+        self.trace: list[dict] = []
         helper.load(cfg.engine_dir)
         self.engine = Engine(cfg.engine_dir)
         self.system = prompts.referee_system(self.engine)
@@ -86,16 +87,38 @@ class Game:
         self.check_sys = prompts.checker_system(self.engine)
         need = est_tokens(self.system) + cfg.model.max_new_tokens + 5000
         if backend.n_ctx < need:
+            hint = (" In LM Studio: open the Developer tab (or the model's settings), set Context Length to 32768, reload the model, "
+                    "then press Reload here." if getattr(backend, "loaded_ctx", None) else " Raise n_ctx (or use a model with a longer context).")
             raise TurnError(f"the model context ({backend.n_ctx} tokens) is too small: the engine rules alone need about "
-                            f"{need} tokens. Raise n_ctx (or use a model with a longer context). The rules are never cut.")
+                            f"{need} tokens, and anything longer is cut off from the start, so the AI would never see the rules.{hint} "
+                            "The rules are never cut.")
         self.step_schema = prompts.step_schema_per_tool() if backend.name == "llama_cpp" else prompts.step_schema()
 
     # ---------------------------------------------------------------------------------------
     def _chat(self, msgs, **kw):
         try:
-            return self.backend.chat(msgs, **kw)
+            raw = self.backend.chat(msgs, **kw)
         except LLMError as e:
             raise TurnError(str(e))
+        self.trace.append({"messages": [dict(m) for m in msgs], "reply": raw})
+        return raw
+
+    def _write_trace(self, camp: Campaign):
+        """Keep what the AI was actually sent in the last turn, so you can see for yourself that the engine rules and the save reach it."""
+        out = [f"# What the AI was sent in the last turn ({len(self.trace)} calls)\n"]
+        for i, c in enumerate(self.trace, 1):
+            out.append(f"\n---\n## Call {i}")
+            for m in c["messages"]:
+                if m["role"] == "system":
+                    first = m["content"].splitlines()[0] if m["content"] else ""
+                    out.append(f"\n### system (about {est_tokens(m['content'])} tokens; the engine rules quoted verbatim, not repeated here)\n{first}")
+                else:
+                    out.append(f"\n### {m['role']} (about {est_tokens(m['content'])} tokens)\n{m['content']}")
+            out.append(f"\n### reply\n{c['reply']}")
+        try:
+            (camp.work / "last_turn_prompts.md").write_text("\n".join(out), encoding="utf-8")
+        except OSError:
+            pass
 
     def _triage(self, camp, ctx, text) -> dict:
         brief = prompts.state_brief(camp, hp_line(ctx))
@@ -178,7 +201,7 @@ class Game:
         raise TurnError("the referee did not close the turn in time")
 
     # ---- narration + audit -----------------------------------------------------------------
-    def _narrate(self, camp, ctx, text, closed, on_event):
+    def _narrate(self, camp, ctx, text, closed, on_event, recap=False):
         lite = camp.profile == "lite"
         visible, dialogue = closed["visible"], closed.get("dialogue") or []
         results = list(ctx.lines) + list(ctx.status)
@@ -189,7 +212,7 @@ class Game:
             on_event({"type": "phase", "text": "narrating" if attempt == 0 else f"rewriting (attempt {attempt + 1})"})
             prose = self._chat([{"role": "system", "content": self.narr_sys},
                                 {"role": "user", "content": prompts.narrator_user(camp, text, visible, dialogue, results,
-                                                                                  ctx.learned, decision, prev, lite, issues)}],
+                                                                                  ctx.learned, decision, prev, lite, issues, recap)}],
                                temperature=0.8, max_tokens=420 if lite else 1100).strip()
             det = checks.check_prose(prose, camp.language, lite, ctx.secret_terms, bool(decision))
             llm_issues = []
@@ -225,13 +248,17 @@ class Game:
         return self._turn(camp, "", on_event, opening=True)
 
     def _turn(self, camp: Campaign, text: str, on_event, opening: bool) -> TurnResult:
+        self.trace = []
         if camp.session.get("ended"):
             raise TurnError("the character is dead. Load an earlier save to continue.")
         if not opening and camp.rnd >= camp.T and camp.session.get("deferral") != "one_round":
             return TurnResult(blocked="save_due", narration="A checkpoint save is due and could not be produced. "
                               "Retry the save, or choose “continue unsaved” (one more round only).")
-        if not opening and leads.needs_guidance(camp, text):
-            return self._guidance(camp, text)
+        if not opening and (leads.is_recap(text) or leads.needs_guidance(camp, text)):
+            try:
+                return self._info_turn(camp, text, on_event)
+            finally:
+                self._write_trace(camp)
         snap = camp.snapshot()
         ctx = TurnCtx(camp, text, engine=self.engine)
         ctx.pending_at_start = copy.deepcopy(camp.session.get("pending_odds"))
@@ -247,15 +274,32 @@ class Game:
                                 "(it can still open them itself)")
         except Exception:
             camp.restore(snap)
+            self._write_trace(camp)
             raise
+        self._write_trace(camp)
         return self._commit(camp, ctx, text, closed, prose, warnings, steps, on_event, opening)
 
-    def _guidance(self, camp: Campaign, text: str) -> TurnResult:
-        """"What should I do?" and a bare "continue" with nothing in progress (engine §13.6 STUCK). Answered in code from what the
-        player knows: no model call, no round, nothing invented, and the character does nothing the player did not choose (§7)."""
-        m = leads.menu(camp)
-        res = TurnResult(narration=m["narration"], decision=m["decision"])
-        camp.session["history"].append({"player": text, "narration": m["narration"], "round": None, "header": None, "lines": [], "status": []})
+    def _info_turn(self, camp: Campaign, text: str, on_event) -> TurnResult:
+        """Questions about the story so far and "what should I do" (engine §13.6 STUCK; RETRIEVAL never advances state). The recap
+        is written from facts the player already knows; the menu is built in code from recorded lines. No round, no roll, no commit,
+        and the character does nothing the player did not choose (§7)."""
+        want_recap, want_menu = leads.is_recap(text), leads.needs_guidance(camp, text)
+        zh = camp.language == "zh_hans"
+        warnings, parts, decision = [], [], None
+        if want_recap:
+            facts = leads.recap_facts(camp)
+            if facts:
+                ctx = TurnCtx(camp, text, engine=self.engine)
+                prose, warnings = self._narrate(camp, ctx, text, {"visible": facts, "dialogue": []}, on_event, recap=True)
+                parts.append(prose)
+            else:
+                parts.append("目前还没有可以回顾的记录。" if zh else "There is nothing recorded to recap yet.")
+        if want_menu or not want_recap:
+            m = leads.menu(camp)
+            parts.append(m["narration"]); decision = m["decision"]
+        narration = "\n\n".join(parts)
+        res = TurnResult(narration=narration, decision=decision, warnings=warnings)
+        camp.session["history"].append({"player": text, "narration": narration, "round": None, "header": None, "lines": [], "status": []})
         camp.write_journal()
         return res
 
