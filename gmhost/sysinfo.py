@@ -139,6 +139,9 @@ def recommend(info: dict) -> dict:
     if cpu_only:
         lines.append("No GPU detected: every turn is several model calls, so expect minutes per turn (a 3B model took about 15 minutes per turn on 4 CPU cores in my test). "
                      "A GPU, or another computer's GPU over Tailscale, makes play comfortable.")
+    if info["gpu"]["kind"] in ("nvidia", "amd") and not (info["ollama"] or info["lmstudio"]):
+        lines.append("Graphics card tip: the built-in package runs on the CPU only. The easy way to use your card, with no compiler, is LM Studio or Ollama "
+                     "(install per user, load the model there, then follow \"Using your graphics card\" in INSTALL.md).")
     lines.append("Pick any recent instruct model of that size with a 32k+ context (for example the Qwen2.5-Instruct family, or a newer one); get its Q4_K_M .gguf file.")
     return {"budget_gb": bud, "budget_from": where, "recommended_b": rec, "lower_b": lower, "lines": lines}
 
@@ -154,7 +157,7 @@ def problems(info: dict) -> list[dict]:
                     "manual": f'"{sys.executable}" -m pip install pyyaml'})
     runtime = info["ollama"] or info["lmstudio"]
     if not info["llama_cpp"] and not runtime:
-        why = "" if info["compiler"] else " (no C++ compiler was found, so only a ready-made package will work; if none fits, use Ollama or LM Studio instead)"
+        why = "" if info["compiler"] else " (no C++ compiler was found, so only a ready-made package will work; if none fits, use Ollama or LM Studio instead). This package runs on the CPU only; with a graphics card, LM Studio or Ollama is faster"
         out.append({"id": "llama_cpp", "label": "llama-cpp-python (runs the AI model inside this program)" + why, "auto": True,
                     "manual": f'"{sys.executable}" -m pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu'})
     if not info["models"] and not runtime:
