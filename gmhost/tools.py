@@ -680,6 +680,21 @@ def t_commit(ctx: TurnCtx, a):
                     notes.append(f"TEMPER for {rid}: difficult — add {rid}.temper")
                 else:
                     ctx.add_entry("+", f"{rid}.temper", "ordinary (rolled at creation)", hidden=True)
+        if op == "~" and owner in _FIELD_RECORD_OWNERS and depth >= 2 and ctx.get(".".join(rid.split(".")[:2])) is None:
+            raise ToolError(f"{rid}: there is no record {'.'.join(rid.split('.')[:2])!r} to change. Use `lookup` to find the real id; never invent one (I3, I9). "
+                            "If this is a genuinely new record, create it first with `+`.")
+        if op == "+" and owner == "quests" and depth == 1:
+            try:
+                q = json.loads(content)
+            except Exception:
+                raise ToolError(f"{rid}: a new quest must be one JSON object line")
+            bad = [k for k in ("role", "type", "source_ref", "objective", "status") if not q.get(k)]
+            if bad or q.get("role") not in ("MAIN", "SIDE") or q.get("type") not in ("SHORT", "LONG", "CHAIN"):
+                raise ToolError(f"{rid}: a quest needs role (MAIN|SIDE), type (SHORT|LONG|CHAIN), source_ref, objective and status (§14.2); "
+                                f"missing/invalid: {bad or ['role/type values']}. A quest is only created when an offer is made or accepted; "
+                                "an existing agreement or appointment is not a quest.")
+            if ctx.get(f"npcs.{q['source_ref']}") is None and ctx.get(f"factions.{q['source_ref']}") is None and ctx.get(f"rights_obligations.{q['source_ref']}") is None:
+                raise ToolError(f"{rid}: source_ref {q['source_ref']!r} is not a known actor or agreement")
         if op == "-" and not content:
             raise ToolError(f"{rid}: `-` needs the reason as content")
         ctx.add_entry(op, rid, content, bool(e.get("hidden", True)), e.get("secret_terms"))

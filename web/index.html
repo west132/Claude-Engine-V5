@@ -46,6 +46,9 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
 .bubble{background:var(--soft);border-radius:18px;padding:.6rem 1rem;max-width:85%;white-space:pre-wrap;overflow-wrap:anywhere}
 .prose{font:17px/1.7 var(--serif)}
 .prose p{margin:0 0 .85em}.prose p:last-child{margin-bottom:0}
+/* round header and roll lines: always visible, as the engine's output formats require */
+.hdrline{font:12.5px var(--mono);color:var(--dim);margin:.1rem 0 .55rem;overflow-wrap:anywhere}
+.rolls{font:12.5px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.5rem .75rem;margin:.6rem 0 0}
 details.info{margin-top:.6rem;font-size:.85rem;color:var(--dim)}
 details.info summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:.4rem;padding:.2rem .55rem;border-radius:8px;user-select:none}
 details.info summary::-webkit-details-marker{display:none}
@@ -93,6 +96,7 @@ details.info summary:hover{background:var(--soft)}
 .scrim{position:fixed;inset:0;background:#0005;z-index:40}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(360px,100vw);background:var(--bg);border-left:1px solid var(--line);z-index:50;overflow-y:auto;padding:1rem 1.1rem calc(1rem + env(safe-area-inset-bottom));transform:translateX(100%);transition:transform .2s}
 .drawer.open{transform:none}
+@media (min-width:1000px){body.docked .drawer{transform:none;top:3rem;z-index:5;box-shadow:none;width:340px}body.docked main{margin-right:340px}body.docked .scrim{display:none}}
 @media (prefers-reduced-motion:reduce){.drawer{transition:none}}
 .drawer h2{font:400 1.4rem var(--serif);margin:0}
 .drawer h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:1.2rem 0 .35rem;font-weight:600}
@@ -233,10 +237,15 @@ const menu=$('#menu');
 function closeMenu(){menu.hidden=true;$('#bMenu').setAttribute('aria-expanded','false')}
 $('#bMenu').onclick=e=>{e.stopPropagation();const o=menu.hidden;menu.hidden=!o;$('#bMenu').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{if(!menu.contains(e.target))closeMenu()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMenu();closeDrawer()}});
-function openDrawer(){$('#side').classList.add('open');$('#scrim').hidden=false}
-function closeDrawer(){$('#side').classList.remove('open');$('#scrim').hidden=true}
-$('#bStatus').onclick=openDrawer;$('#scrim').onclick=closeDrawer;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMenu();if($('#side').classList.contains('open')){$('#side').classList.remove('open');$('#scrim').hidden=true}}});
+const wide=()=>matchMedia('(min-width:1000px)').matches;
+let dockOn=(()=>{try{return localStorage.getItem('gm_dock')!=='0'}catch(e){return true}})();
+function applyDock(){document.body.classList.toggle('docked',wide()&&dockOn&&!!snap)}
+function setDock(v){dockOn=v;try{localStorage.setItem('gm_dock',v?'1':'0')}catch(e){}applyDock()}
+function openDrawer(){if(wide()){setDock(true)}else{$('#side').classList.add('open');$('#scrim').hidden=false}}
+function closeDrawer(){if(wide()&&document.body.classList.contains('docked')){setDock(false)}else{$('#side').classList.remove('open');$('#scrim').hidden=true}}
+addEventListener('resize',applyDock);
+$('#bStatus').onclick=()=>{if(wide()&&document.body.classList.contains('docked'))setDock(false);else openDrawer()};$('#scrim').onclick=closeDrawer;
 menu.addEventListener('click',closeMenu);
 
 function render(){
@@ -245,7 +254,7 @@ function render(){
   ['#bSave','#bSet','#bLog','#bStatus'].forEach(s=>$(s).disabled=!has);
   $('#inp').disabled=$('#send').disabled=!has||busy||snap?.status.ended||!ready;
   $('#foot').textContent=ready?(info.model.name==='demo'?t('Demo mode — a scripted stand-in, not an AI model.'):(LANG==='zh_hans'?'在本机运行：':'Running locally on ')+(info.model.path.split(/[\\/]/).pop()||info.model.name)+(LANG==='zh_hans'?'。它可能出错；骰子和数值由程序计算。':'. It can make mistakes; the dice and numbers are computed by the program.')):'';
-  drawer();
+  drawer();applyDock();
 }
 function drawer(){
   const a=$('#side');if(!snap){a.innerHTML='';return}
@@ -274,12 +283,13 @@ function drawer(){
 function userMsg(text){return `<div class="msg user"><div class="bubble">${esc(text)}</div></div>`}
 function botMsg(tn){
   let h='<div class="msg bot">';
+  if(tn.header)h+=`<div class="hdrline">${esc(tn.header)}</div>`;
   const paras=(tn.narration||'').split(/\n+/).filter(Boolean);
   if(paras.length)h+=`<div class="prose">${paras.map(p=>`<p>${esc(p)}</p>`).join('')}</div>`;
-  const rolls=(tn.lines||[]).length, hasInfo=tn.header||rolls||(tn.status||[]).length||tn.gm_delta;
-  if(hasInfo){
-    const zh=LANG==='zh_hans',label=[tn.round!=null?(zh?`第 ${tn.round} 回合`:`Round ${tn.round}`):t('Details'),rolls?(zh?`${rolls} 次掷骰`:`${rolls} roll${rolls>1?'s':''}`):'',(tn.status||[]).length?(zh?`${tn.status.length} 项变化`:`${tn.status.length} change${tn.status.length>1?'s':''}`):''].filter(Boolean).join(' · ');
-    h+=`<details class="info"><summary>${esc(label)}</summary><div class="infobody">${tn.header?`<div class="hdr">${esc(tn.header)}</div>`:''}${rolls?`<pre>${esc(tn.lines.join('\n'))}</pre>`:''}${(tn.status||[]).length?`<div class="chips">${tn.status.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}${tn.gm_delta?`<pre>${esc(tn.gm_delta)}</pre>`:''}</div></details>`;
+  if((tn.lines||[]).length)h+=`<pre class="rolls">${esc(tn.lines.join('\n'))}</pre>`;
+  if((tn.status||[]).length||tn.gm_delta){
+    const zh=LANG==='zh_hans',n=(tn.status||[]).length,label=(n?(zh?`${n} 项变化`:`${n} change${n>1?'s':''}`):'')+(tn.gm_delta?((n?' · ':'')+'GM-Δ'):'');
+    h+=`<details class="info"><summary>${esc(label)}</summary><div class="infobody">${n?`<div class="chips">${tn.status.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}${tn.gm_delta?`<pre>${esc(tn.gm_delta)}</pre>`:''}</div></details>`;
   }
   if(tn.decision&&Array.isArray(tn.decision.options))h+=`<div class="opts">${tn.decision.options.map(o=>`<button data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
   if(tn.save){h+=tn.save.failed?`<div class="note warn">${esc(t('The checkpoint save failed:'))} ${esc(tn.save.failed)}<div class="opts"><button data-act="retry">Retry save</button><button data-act="unsaved">Continue unsaved (one more round)</button></div></div>`:`<div class="note">${esc(t('Checkpoint saved at round'))} ${tn.save.round} (${esc(tn.save.path.split(/[\\/]/).pop())}). ${esc(t('Carry on whenever you like.'))}</div>`}
