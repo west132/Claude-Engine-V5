@@ -62,6 +62,14 @@ model    = "name-of-your-model"
 n_ctx    = 32768                          # set the same context size in that program
 ```
 
+### The setup asks how you want to run the AI
+On first start (and any time you run `python -m gmhost setup`) it checks the computer, then asks:
+1. **Test on the CPU** – built-in engine, no extra program; slow, fine for trying it.
+2. **Online API** – any OpenAI-compatible service with your own key. Your story text is sent to that service.
+3. **Set up a model for my graphics card** – explains LM Studio step by step, waits for its server, then links it.
+4. **I already have a local AI** – links Ollama, LM Studio or another local server and lists its models for you to pick.
+Choices 2-4 write `config.toml` for you (the old file is kept as `config.toml.bak`).
+
 ### Using your graphics card (easiest, no compiler, no Claude Code needed)
 The package the program installs by itself runs on the **CPU only**. To use an NVIDIA or AMD card, let LM Studio do the GPU work:
 1. Install **LM Studio** (lmstudio.ai; the normal installer works per user). Open it, search for an instruct model of the size the computer check recommended, and download its Q4_K_M version.

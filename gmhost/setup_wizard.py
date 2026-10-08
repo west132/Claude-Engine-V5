@@ -4,6 +4,8 @@
 from __future__ import annotations
 import hashlib
 import importlib
+import json
+import re
 import subprocess
 import sys
 import urllib.request
@@ -72,13 +74,112 @@ def download(url: str, dest_dir: Path, say: Callable[[str], None] = print, sha25
     return dest
 
 
+def list_models(base_url: str, api_key: str = "") -> list[str]:
+    """Ask an OpenAI-compatible server (Ollama, LM Studio, an API) which models it offers. Empty list = unreachable."""
+    req = urllib.request.Request(base_url.rstrip("/") + "/models", headers={"Authorization": f"Bearer {api_key}"} if api_key else {})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return [m["id"] for m in json.loads(r.read().decode("utf-8")).get("data", []) if m.get("id")]
+    except Exception:
+        return []
+
+
+def write_model_config(root: Path, **fields) -> Path:
+    """Set the given keys in config.toml's [model] table, keeping every other setting (the old file is saved as config.toml.bak)."""
+    path = root / "config.toml"
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    if text:
+        (root / "config.toml.bak").write_text(text, encoding="utf-8")
+    m = re.search(r"(?ms)^\[model\]\s*\n(.*?)(?=^\[|\Z)", text)
+    body = m.group(1) if m else ""
+    for k, v in fields.items():
+        line = f"{k} = {json.dumps(v)}" if isinstance(v, str) else f"{k} = {v}"
+        if re.search(rf"(?m)^{k}\s*=", body):
+            body = re.sub(rf"(?m)^{k}\s*=.*$", lambda _: line, body)
+        else:
+            body = body.rstrip("\n") + ("\n" if body.strip() else "") + line + "\n"
+    block = "[model]\n" + body.rstrip("\n") + "\n\n"
+    text = (text[:m.start()] + block + text[m.end():]) if m else (text.rstrip("\n") + ("\n\n" if text.strip() else "") + block)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+MODES = """How do you want to run the AI?
+  1) Test on this computer's CPU      the built-in engine, no extra program; slow, fine for trying it out
+  2) Use an online API                OpenAI-compatible service with your own key (your story text is sent to that service)
+  3) Set up a model for my graphics card   install LM Studio (free), which uses the GPU; best speed
+  4) I already have a local AI        link Ollama, LM Studio or another local server"""
+
+LMSTUDIO_STEPS = """LM Studio is a free app that downloads models and runs them on your graphics card. No command line, no compiler.
+  a) Install it from https://lmstudio.ai (the normal installer works for one user).
+  b) In LM Studio, search for an instruct model of the size recommended above and download its Q4_K_M version.
+  c) Load the model. Set Context Length to 32768 and GPU Offload to the maximum.
+  d) Open the Developer tab and press Start Server (it listens on http://127.0.0.1:1234)."""
+
+
+def _pick_model(models: list[str], ask, say) -> str:
+    if not models:
+        return ""
+    if len(models) == 1:
+        say(f"  Found one model: {models[0]}"); return models[0]
+    say("  Models found:" + "".join(f"\n    {i}) {m}" for i, m in enumerate(models, 1)))
+    c = ask(f"  Choose 1-{len(models)} [1]: ").strip() or "1"
+    return models[int(c) - 1] if c.isdigit() and 1 <= int(c) <= len(models) else models[0]
+
+
+def connect(root: Path, mode: str, info: dict, ask, say) -> bool:
+    """Modes 2-4: record where the AI lives in config.toml. Returns True when a server/model was linked."""
+    if mode == "2":
+        say("\nOnline API. The story text, character facts and your messages are sent to that provider; nothing is kept here but your key in config.toml.")
+        url = ask("  API base URL [https://api.openai.com/v1]: ").strip() or "https://api.openai.com/v1"
+        key = ask("  API key: ").strip()
+        models = list_models(url, key)
+        model = _pick_model(models, ask, say) or ask("  Model name: ").strip()
+        if not models: say("  (could not list models; the settings are saved anyway, check the key and address if the app reports an error)")
+    elif mode == "3":
+        say("\n" + "\n".join(sysinfo.recommend(info)["lines"][:2]) + "\n")
+        say(LMSTUDIO_STEPS)
+        url, key = "http://127.0.0.1:1234/v1", ""
+        while True:
+            ask("\n  Press Enter when the server is running (or Ctrl+C to finish later): ")
+            models = list_models(url)
+            if models: break
+            say("  I can't reach LM Studio's server yet. Is the model loaded and the server started?")
+            if ask("  Try again? [Y/n]: ").strip().lower() == "n":
+                say("  OK. Finish the steps, then run:  python -m gmhost setup"); return False
+        model = _pick_model(models, ask, say)
+    else:
+        say("\nWhich local program?\n  1) Ollama (http://127.0.0.1:11434)\n  2) LM Studio (http://127.0.0.1:1234)\n  3) Another address")
+        c = ask("  Choose 1-3 [1]: ").strip() or "1"
+        url = {"1": "http://127.0.0.1:11434/v1", "2": "http://127.0.0.1:1234/v1"}.get(c) or ask("  Address ending in /v1: ").strip()
+        key = "" if c in ("1", "2") else ask("  API key (Enter for none): ").strip()
+        models = list_models(url, key)
+        if not models:
+            say("  I can't reach it. Start the program and load a model, then run:  python -m gmhost setup"); return False
+        model = _pick_model(models, ask, say)
+    write_model_config(root, backend="openai", base_url=url, model=model, api_key=key, n_ctx=32768)
+    say(f"  Saved to config.toml: {model or '(model name empty)'} at {url}")
+    if mode in ("3", "4"):
+        say("  Reminder: the context length in that program must be 32768 or the AI will lose track of the story.")
+    return True
+
+
 def run(root: Path, auto: bool = False, check_only: bool = False, first_run: bool = False,
         ask: Callable[[str], str] = input, say: Callable[[str], None] = print) -> int:
     """Interactive wizard. Returns 0 when nothing essential is missing afterwards."""
     say("Checking your computer…\n")
     info = sysinfo.gather(root)
     say(sysinfo.format_report(info)); say("")
-    todo = sysinfo.problems(info)
+    local = True
+    if not (auto or check_only):
+        say(MODES)
+        mode = ask("Choose 1-4 [1]: ").strip() or "1"
+        if mode in ("2", "3", "4"):
+            local = not connect(root, mode, info, ask, say)       # linked a server/API: no local engine or model file needed
+        elif mode == "1":
+            say("\nCPU test: use the smallest tier (a 3B-7B model). Expect minutes per turn; it is for trying the program, not for long play.")
+        say("")
+    todo = sysinfo.problems(info, local_model=local)
     if not todo:
         say("Everything the program needs is in place."); return 0
     say("Missing:" + "".join(f"\n  - {p['label']}" for p in todo))

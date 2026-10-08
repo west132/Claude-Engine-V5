@@ -10,7 +10,7 @@ if ! "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>
   exit 1
 fi
 if [ ! -d .venv ]; then
-  echo "First run. The program needs two Python packages (PyYAML, llama-cpp-python)."
+  echo "First run. The program needs a small Python package (PyYAML); the setup then asks how you want to run the AI."
   echo "They go into a private folder (.venv) inside this directory: no administrator rights, nothing changes in your system."
   echo "  1) Let the program set it up for me (needs internet once)"
   echo "  2) I will do it myself (show me the commands)"

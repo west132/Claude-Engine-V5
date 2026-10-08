@@ -44,11 +44,11 @@ def test_wizard_asks_and_respects_each_choice(tmp_path, monkeypatch):
     installed = []
     monkeypatch.setattr(setup_wizard, "pip_install", lambda item, say=print: installed.append(item) or False)
     out = []
-    answers = iter(["2", ""])                        # llama_cpp: "I'll do it myself"; model: just press Enter
+    answers = iter(["1", "2", ""])                        # llama_cpp: "I'll do it myself"; model: just press Enter
     code = setup_wizard.run(tmp_path, ask=lambda q: next(answers), say=out.append)
     text = "\n".join(out)
     assert installed == [] and "pip install llama-cpp-python" in text and code == 1
-    answers = iter(["1", ""])                        # now: install it for me
+    answers = iter(["1", "1", ""])                        # now: install it for me
     setup_wizard.run(tmp_path, ask=lambda q: next(answers), say=out.append)
     assert installed == ["llama_cpp"]
 
@@ -82,3 +82,66 @@ def test_download_resumes_and_verifies_sha(tmp_path):
     with pytest.raises(ValueError, match="gguf"):
         setup_wizard.download("http://x/y.zip", tmp_path)
     srv.shutdown()
+
+
+class _Models(BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def do_GET(self):
+        body = b'{"data":[{"id":"qwen-14b"},{"id":"other"}]}'
+        self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+
+
+def _models_url():
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _Models); threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return f"http://127.0.0.1:{srv.server_address[1]}/v1"
+
+
+def test_write_model_config_keeps_other_settings(tmp_path):
+    (tmp_path / "config.toml").write_text('[game]\nlanguage = "zh_hans"\n\n[model]\nbackend = "auto"\nn_ctx = 8192\n\n[server]\nport = 9000\n')
+    setup_wizard.write_model_config(tmp_path, backend="openai", model="m", n_ctx=32768)
+    from gmhost.config import load_config
+    c = load_config(tmp_path / "config.toml")
+    assert (c.model.backend, c.model.model, c.model.n_ctx, c.game.language, c.server.port) == ("openai", "m", 32768, "zh_hans", 9000)
+    assert (tmp_path / "config.toml.bak").exists()
+
+
+def test_mode4_links_a_running_local_server(tmp_path, monkeypatch):
+    monkeypatch.setattr(sysinfo, "gather", lambda root: info(32, "nvidia", 24, llama_cpp=False, models=[]))
+    url = _models_url()
+    answers = iter(["4", "3", url, "", "2"])         # mode 4, "another address", url, no key, pick the second model
+    code = setup_wizard.run(tmp_path, ask=lambda q: next(answers), say=lambda t: None)
+    from gmhost.config import load_config
+    c = load_config(tmp_path / "config.toml")
+    assert (c.model.backend, c.model.base_url, c.model.model) == ("openai", url, "other")
+    assert code == 0                                  # no local engine or model file is demanded any more
+
+
+def test_mode2_api_saves_key_and_model(tmp_path, monkeypatch):
+    monkeypatch.setattr(sysinfo, "gather", lambda root: info(16, llama_cpp=False, models=[]))
+    url = _models_url()
+    answers = iter(["2", url, "sk-test", "1"])
+    setup_wizard.run(tmp_path, ask=lambda q: next(answers), say=lambda t: None)
+    from gmhost.config import load_config
+    c = load_config(tmp_path / "config.toml")
+    assert (c.model.api_key, c.model.model) == ("sk-test", "qwen-14b")
+
+
+def test_mode3_explains_lm_studio_then_links_it(tmp_path, monkeypatch):
+    monkeypatch.setattr(sysinfo, "gather", lambda root: info(32, "nvidia", 24, llama_cpp=False, models=[]))
+    url = _models_url()
+    monkeypatch.setattr(setup_wizard, "list_models", lambda u, k="": ["qwen-14b"] if "1234" in u else [])
+    out = []
+    answers = iter(["3", ""])                         # mode 3, then Enter once the server is running
+    setup_wizard.run(tmp_path, ask=lambda q: next(answers), say=out.append)
+    text = "\n".join(out)
+    assert "lmstudio.ai" in text and "32768" in text and "Recommended: 14B" in text
+    from gmhost.config import load_config
+    assert load_config(tmp_path / "config.toml").model.model == "qwen-14b"
+
+
+def test_mode1_cpu_test_needs_engine_and_model(tmp_path, monkeypatch):
+    monkeypatch.setattr(sysinfo, "gather", lambda root: info(16, llama_cpp=False, models=[]))
+    out = []
+    answers = iter(["1", "3", ""])
+    code = setup_wizard.run(tmp_path, ask=lambda q: next(answers), say=out.append)
+    assert code == 1 and not (tmp_path / "config.toml").exists() and "CPU test" in "\n".join(out)

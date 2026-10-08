@@ -146,7 +146,7 @@ def recommend(info: dict) -> dict:
     return {"budget_gb": bud, "budget_from": where, "recommended_b": rec, "lower_b": lower, "lines": lines}
 
 
-def problems(info: dict) -> list[dict]:
+def problems(info: dict, local_model: bool = True) -> list[dict]:
     """What is missing, whether the program may install it without admin rights, and the exact command to do it yourself."""
     out = []
     if not info["python_ok"]:
@@ -155,7 +155,7 @@ def problems(info: dict) -> list[dict]:
     if not info["pyyaml"]:
         out.append({"id": "pyyaml", "label": "PyYAML (reads the world and save files)", "auto": True,
                     "manual": f'"{sys.executable}" -m pip install pyyaml'})
-    runtime = info["ollama"] or info["lmstudio"]
+    runtime = info["ollama"] or info["lmstudio"] or not local_model     # not local_model: an API or another program supplies the AI
     if not info["llama_cpp"] and not runtime:
         why = "" if info["compiler"] else " (no C++ compiler was found, so only a ready-made package will work; if none fits, use Ollama or LM Studio instead). This package runs on the CPU only; with a graphics card, LM Studio or Ollama is faster"
         out.append({"id": "llama_cpp", "label": "llama-cpp-python (runs the AI model inside this program)" + why, "auto": True,

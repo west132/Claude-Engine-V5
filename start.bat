@@ -11,7 +11,7 @@ if "%PYCMD%"=="" (
   pause & exit /b 1
 )
 if not exist .venv (
-  echo First run. The program needs two Python packages ^(PyYAML, llama-cpp-python^).
+  echo First run. The program needs a small Python package ^(PyYAML^); the setup then asks how you want to run the AI.
   echo They go into a private folder ^(.venv^) inside this directory: no administrator rights, nothing changes in your system.
   echo   1^) Let the program set it up for me ^(needs internet once^)
   echo   2^) I will do it myself ^(show me the commands^)
