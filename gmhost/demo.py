@@ -53,6 +53,16 @@ class DemoBackend(Backend):
         said = (re.search(r"PLAYER SAYS: (.*)", first) or [None, ""])[1].lower()
         loc = (re.search(r"location `([^`]+)`", first) or [None, "here"])[1]
         def call(tool, **args): return {"tool": tool, "args": args}
+        last = results[-1] if results else ""
+        if "DUE NOW" in last or "settle these first" in last:
+            pm = re.search(r"pressure ([\w\-]+): clock .*? due (\d{4}-\d{2}-\d{2})", last)
+            if pm and "commit" not in last.split("settle these first")[-1][:0]:
+                import datetime as _dt
+                nxt = (_dt.date.fromisoformat(pm.group(2)) + _dt.timedelta(days=30)).isoformat() + " 06:00"
+                return call("clock_check", pressure_id=pm.group(1), process_operated=False, next_due=nxt, reason="the process did not operate while the demo waits")
+            nm = re.search(r"\((npcs|factions)\.([\w\-]+)\)", last)
+            if nm:
+                return call("commit", entries=[{"op": "~", "id": f"{nm.group(1)}.{nm.group(2)}.state.due", "content": "none (incidental)", "hidden": True}])
         def close(opened, *visible, **kw): return call("close_round", opened_round=opened, visible=list(visible), **kw)
         if first.startswith("NEW GAME"):
             return close(False, f"It is early. You are at {loc.replace('_', ' ')}.", "The room is warm and noisy.")
@@ -62,17 +72,17 @@ class DemoBackend(Backend):
                             damage_kind="creature", damage_size="man_sized", soak="none", attacks=1)
             if "check" not in done:
                 return call("check", action="shoot the wolf", why_uncertain="a moving target in poor light",
-                            capability={"mode": "numeric", "cmp": 4, "challenge": 3, "basis": "open ground"},
+                            capability={"mode": "absolute", "capmod": 0, "base": 10, "basis": "open ground"},
                             conditions=[{"category": "sensory", "value": 1, "fact": "dim light before dawn"}],
                             stakes={"cost": "loss", "cost_text": "the wolf closes and bites", "reach": "full",
                                     "reach_text": "the wolf goes down", "harm": True},
                             harm={"source_id": "wolf1"}, attack={"kind": "weapon", "size": "bow", "item_id": "crossbow"},
-                            target_id="wolf1", skills_exercised=["crossbow"],
+                            target_id="wolf1",
                             context={"in_combat": True, "player_chosen_roll": True, "covered_by_order": True, "character_can_judge": True})
             last = results[-1] if results else ""
             if "REFUSED" in last:
                 return close(True, "You hesitate and the moment passes.")
-            if "SUCCESS" in last and "award_xp" not in done:
+            if "SUCCESS" in last and "award_xp" not in done and "award_xp" not in last:
                 return call("award_xp", kind="combat", scope_id=f"fight_{len(messages)}_{hash(said) % 9999}", scope="meaningful",
                             challenges=[3], participants=["player"])
             if ("player_update" not in done) and "must settle" in last.lower():
@@ -82,23 +92,17 @@ class DemoBackend(Backend):
         if any(w in said for w in ("rest", "sleep")):
             if "rest" not in done:
                 return call("rest", hours=8, quality="full_night", out_of_danger=True)
-            if "growth_boundary" not in done:
+            if "growth_boundary" not in done and "growth_boundary" not in last:
                 return call("growth_boundary", reason="a full night's rest")
             return close(True, "You sleep through the night and wake rested.")
         if any(w in said for w in ("wait", "travel", "walk")):
             if "advance_time" not in done:
                 return call("advance_time", minutes=60, activity="waiting")
-            last = results[-1] if results else ""
-            if "DUE NOW" in last:
-                m = re.search(r"- (?:.*?)\((npcs|factions)\.([\w\-]+)\)", last)
-                if m and "commit" not in done:
-                    return call("commit", entries=[{"op": "~", "id": f"{m.group(1)}.{m.group(2)}.state.due",
-                                                    "content": "none (incidental)", "hidden": True}])
             return close(True, "An hour passes.")
         if said.endswith("?") or said.startswith(("ask", "talk", "speak")):
             if "ask" not in done:
-                return call("ask", question="Does the innkeeper know of any work?", label="Oda Brandt",
+                return call("ask", question="Will she tell Rin more?", label="Nadia Voss",
                             settle_test="the board lists work but the innkeeper's own knowledge is not recorded, so it is open",
                             likelihood=1, **{"for": ["she hears every caravan's news"], "against": []})
-            return close(True, "Oda wipes the counter and answers.", dialogue=[{"who": "Oda Brandt", "gist": "answers about work"}])
+            return close(True, "Nadia hesitates, then answers.", dialogue=[{"who": "Nadia Voss", "gist": "answers the question"}])
         return close(False, f"You {said or 'wait'}.")

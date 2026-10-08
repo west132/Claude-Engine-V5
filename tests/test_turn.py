@@ -23,25 +23,25 @@ def scripted(*replies):
 
 
 def test_rollback_on_failure_leaves_state_untouched(cfg, camp):
-    b = scripted(TRIAGE, step("player_update", kind="money", data={"delta": {"silver": -4}}, reason="a room"), "garbage", "garbage",
+    b = scripted(TRIAGE, step("player_update", kind="money", data={"delta": -40}, reason="a room"), "garbage", "garbage",
                  "garbage", "garbage", "garbage")
     g = Game(cfg, b)
     cfg.game.max_referee_steps = 3
     with pytest.raises(TurnError):
         g.play(camp, "I pay for a room")
-    assert camp.player["money"]["silver"] == 14 and camp.rnd == 0
+    assert camp.player["money"]["cash_and_accessible_funds"] == 1950 and camp.rnd == 0
 
 
 def test_refusal_is_fed_back_and_turn_completes(cfg, camp):
     b = scripted(TRIAGE,
-                 step("player_update", kind="money", data={"delta": {"silver": -99}}, reason="a horse"),
-                 step("player_update", kind="money", data={"delta": {"silver": -4}}, reason="a room"),
-                 step("close_round", opened_round=True, visible=["You pay four silver for a room."]),
-                 "You count four silver onto the counter and Oda pockets it.", OK)
+                 step("player_update", kind="money", data={"delta": -99999}, reason="a car"),
+                 step("player_update", kind="money", data={"delta": -40}, reason="a room"),
+                 step("close_round", opened_round=True, visible=["You pay forty dollars for a room."]),
+                 "You count forty dollars onto the counter and the clerk pockets it.", OK)
     r = Game(cfg, b).play(camp, "I pay for a room")
-    assert camp.player["money"]["silver"] == 10 and r.round == 1
-    assert r.header == "ROUND 1 | 2026-03-01 | 07:30 | The Cracked Pot (inn, Marrowgate) | saved R0 · save R10"
-    assert "REFUSED: not enough silver" in json.dumps(b.calls[2]["messages"])
+    assert camp.player["money"]["cash_and_accessible_funds"] == 1910 and r.round == 1
+    assert r.header == "ROUND 1 | 2026-10-06 | 19:40 | Hale Workshop, Morrow Ward | saved R0 · save R10"
+    assert "REFUSED: not enough money" in json.dumps(b.calls[2]["messages"])
     assert r.gm_delta == "GM-Δ 1 none"
 
 
@@ -68,7 +68,7 @@ def test_checker_issue_triggers_a_rewrite(cfg, camp):
 
 def test_lite_header_and_profile(cfg, camp):
     camp.readable["profile"] = "lite"
-    assert header(camp, 3) == "R 3 | 2026-03-01 07:30 | The Cracked Pot (inn, Marrowgate) | save R10"
+    assert header(camp, 3) == "R 3 | 2026-10-06 19:40 | Hale Workshop, Morrow Ward | save R10"
 
 
 def test_checkpoint_at_round_10_validates_and_survives_next_save(cfg, example_text, dice):
@@ -125,7 +125,7 @@ def test_import_refuses_a_save_for_a_different_background(cfg, example_text):
     app.create("a", example_text); app.opening()
     for _ in range(10): app.play("I wait an hour")
     save = (app.camp.saves / "save_a_R10.md").read_text(encoding="utf-8")
-    other = example_text.replace("the_salt_road_v1", "another_world_v1")
+    other = example_text.replace("ashfall_hunter_gemini_combined_v4_4", "another_world_v1")
     with pytest.raises(Exception, match="points at BACKGROUND"):
         saves.import_save(cfg, "x", save, other)
 
@@ -152,7 +152,7 @@ def test_server_roundtrip_and_csrf_guard(cfg, example_text):
     assert ev[-1]["type"] == "done"
     post("/api/open", {"name": "web"})
     post("/api/opening", {})
-    evs = [json.loads(l[5:]) for l in post("/api/play", {"text": "I ask Oda about work?"}).split("\n\n") if l.startswith("data:")]
+    evs = [json.loads(l[5:]) for l in post("/api/play", {"text": "I ask Nadia about her brother?"}).split("\n\n") if l.startswith("data:")]
     done = evs[-1]["payload"]
     assert done["round"] == 1 and any("YES" in l or "NO" in l for l in done["lines"])
     snap = json.loads(urllib.request.urlopen(base + "/api/campaign").read())

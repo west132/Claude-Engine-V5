@@ -14,7 +14,7 @@ _SLUG = re.compile(r"^[a-z0-9][a-z0-9_\-]{2,60}$")
 def problems(tree: dict) -> list[str]:
     p = []
     bid = tree.get("background_id")
-    if not isinstance(bid, str) or not _SLUG.match(bid): p.append("background_id: a lowercase slug such as `salt_road_v1`")
+    if not isinstance(bid, str) or not _SLUG.match(bid): p.append("background_id: a lowercase slug such as `ashfall_v1`")
     if tree.get("provenance") not in ("authored", "generated", "mixed"): p.append("provenance: authored | generated | mixed")
     st = tree.get("setting") or {}
     for k in ("world", "era", "starting_region", "mode"):

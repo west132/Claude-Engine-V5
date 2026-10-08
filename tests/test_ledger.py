@@ -3,23 +3,25 @@ from gmhost.campaign import Campaign, Entry
 
 def test_initial_vitals_come_from_the_engine_tables(camp):
     c = camp.player["condition"]
-    assert (c["hp"], c["mp"]) == (14, 10)            # level 3: 8+2*3 ; MP 2*3 + 4*T1(1)
+    assert (c["hp"], c["mp"]) == (16, 16)            # level 4: 8+2*4 ; MP 2*4 + 4*T2(2) from the demonic_surge skill
 
 
 def test_overlay_is_the_helpers_merge(camp):
-    b = camp.make_block(1, [Entry("~", "npcs.corvin_hale.state.position", "marrowgate_cracked_pot", False),
+    path = "npcs.nadia_voss.state.plan"
+    old = camp.get(path)
+    b = camp.make_block(1, [Entry("~", path, "waits for Rin's answer at the workshop door", False),
                             Entry("+", "locked_case_truths.pack", '{"cause": "hungry", "state": {}}')])
-    assert camp.get("npcs.corvin_hale.state.position", b) == "marrowgate_cracked_pot"
-    assert camp.get("npcs.corvin_hale.state.position") == "marrowgate_salt_gate"      # not committed yet
+    assert camp.get(path, b) == "waits for Rin's answer at the workshop door"
+    assert camp.get(path) == old                      # not committed yet
     camp.commit_block(b)
     assert camp.get("locked_case_truths.pack")["cause"] == "hungry"
-    assert camp.records()["npcs.corvin_hale.state.position"].startswith("R1:")
+    assert camp.records()[path].startswith("R1:")
 
 
 def test_retired_background_paths_stay_gone(camp):
-    camp.commit_block(camp.make_block(1, [Entry("-", "npcs.oda_brandt", "left town for good")]))
-    assert camp.get("npcs.oda_brandt") is None
-    assert "npcs.oda_brandt" in [r for r, _ in camp._merge_view(None)[1]]
+    camp.commit_block(camp.make_block(1, [Entry("-", "npcs.dale", "left the city")]))
+    assert camp.get("npcs.dale") is None
+    assert "npcs.dale" in [r for r, _ in camp._merge_view(None)[1]]
 
 
 def test_keyed_record_under_a_background_list(camp):

@@ -8,8 +8,9 @@ from gmhost.cards import Engine
 
 
 @pytest.fixture
-def ctx(camp, cfg):
-    return TurnCtx(camp, "test", engine=Engine(cfg.engine_dir))
+def ctx(r120, cfg):
+    """Tools run against the user's real campaign at R120 (Rin Hale, level 4, HP 16, MP 16)."""
+    return TurnCtx(r120, "test", engine=Engine(cfg.engine_dir))
 
 
 def call(ctx, tool_name, **args):
@@ -25,7 +26,7 @@ def check_args(**over):
              capability={"mode": "numeric", "cmp": 4, "challenge": 3, "basis": "open ground"},
              conditions=[{"category": "sensory", "value": 1, "fact": "dim light before dawn"}],
              stakes={"cost": "setback", "cost_text": "the wolf closes the distance", "reach": "full", "reach_text": "the wolf is hit"},
-             skills_exercised=["crossbow"])
+             skills_exercised=["close_combat"])
     a.update(over)
     return a
 
@@ -50,6 +51,19 @@ def test_challenge_gap_sets_capability_not_the_model(ctx, dice):
     dice(5, 6)
     call(ctx, "check", **check_args(capability={"mode": "numeric", "cmp": 9, "challenge": 3}, conditions=[]))
     assert "Capability: +4" in ctx.lines[0]
+
+
+def test_host_computes_player_capability_from_skill_and_gear(ctx, dice):
+    dice(5, 6)
+    call(ctx, "check", **check_args(capability={"mode": "numeric", "skill_id": "close_combat", "challenge": 6}, conditions=[]))
+    assert "Capability: +0" in ctx.lines[-1]                       # level 4 + T2 bonus 2 = 6 vs 6
+    call(ctx, "check", **check_args(capability={"mode": "numeric", "skill_id": "close_combat", "challenge": 2}, conditions=[]))
+    assert "Capability: +2" in ctx.lines[-1]                       # 6 vs 2: Δ+4
+    out = call(ctx, "check", **check_args(capability={"mode": "numeric", "skill_id": "close_combat", "gear_item_id": "nightglass_blade", "challenge": 5}, conditions=[]))
+    assert "Capability: +2" in ctx.lines[-1]                       # T2 blade +1: 7 vs 5 (without it 6 vs 5 = +0)
+    with pytest.raises(ToolError, match="never also a ToolMod"):
+        call(ctx, "check", **check_args(capability={"mode": "numeric", "skill_id": "close_combat", "gear_item_id": "nightglass_blade", "challenge": 5},
+                                        tool={"fit": 1, "source": "good grip"}))
 
 
 def test_numeric_mode_refuses_base_and_missing_facts(ctx):
@@ -92,8 +106,8 @@ def test_failed_check_costs_one_hit_with_soak_and_spends_the_attack(ctx, dice):
     register(ctx)
     dice(1, 1, 4)                                   # fail, then 1d6 = 4 ; leather = soak 1
     call(ctx, "check", **harm_args(source_id="wolf1"))
-    assert any(l.startswith("Damage: 1d6 (4) − soak 1 = 3 | Ilsa Venn HP 14 → 11") for l in ctx.lines)
-    assert ctx.camp.player["condition"]["hp"] == 11
+    assert any(l.startswith("Damage: 1d6 (4) − soak 1 = 3 | Rin Hale HP 16 → 13") for l in ctx.lines)
+    assert ctx.camp.player["condition"]["hp"] == 13
     assert ctx.camp.session["combat"]["wolf1"]["attacks_left"] == 0
     with pytest.raises(ToolError, match="no attack left"):
         call(ctx, "damage", target_id="player", kind="creature", size="man_sized", source_id="wolf1", reason="second bite")
@@ -103,13 +117,13 @@ def test_severe_with_two_attackers_each_hit_once_lone_hits_twice(ctx, dice):
     register(ctx, "wolf1"); register(ctx, "wolf2")
     dice(1, 1, 4, 4)
     call(ctx, "check", **harm_args("severe", engaged_ids=["wolf1", "wolf2"]))
-    assert ctx.camp.player["condition"]["hp"] == 14 - 3 - 3
+    assert ctx.camp.player["condition"]["hp"] == 16 - 3 - 3
     c2 = TurnCtx(ctx.camp, engine=ctx.engine)
-    ctx.camp.player["condition"]["hp"] = 14
+    ctx.camp.player["condition"]["hp"] = 16
     ctx.camp.session["combat"].pop("wolf2")
     dice(1, 1, 4, 4)
     call(c2, "check", **harm_args("severe", source_id="wolf1"))
-    assert ctx.camp.player["condition"]["hp"] == 14 - 3 - 3
+    assert ctx.camp.player["condition"]["hp"] == 16 - 3 - 3
 
 
 def test_hit_on_success_damages_the_engaged_opponent(ctx, dice):
@@ -153,23 +167,23 @@ def test_down_player_cannot_rest_and_dies_on_damage(ctx, dice):
 # ---- xp ---------------------------------------------------------------------------------------
 def test_xp_is_paid_once_per_scope(ctx):
     out = call(ctx, "award_xp", kind="combat", scope_id="wolf_fight", scope="meaningful", challenges=[3, 3], participants=["player"])
-    assert "XP +76" in out and ctx.camp.player["progression"]["state"]["xp"] == 76
-    ctx.camp.commit_block(ctx.camp.make_block(1, list(ctx.entries)))
+    assert "XP +58" in out and ctx.camp.player["progression"]["state"]["xp"] == 221 + 58      # R3 vs level 4: ×0.75 each
+    ctx.camp.commit_block(ctx.camp.make_block(ctx.camp.rnd + 1, list(ctx.entries)))
     ctx2 = TurnCtx(ctx.camp, engine=ctx.engine)
     with pytest.raises(ToolError, match="already paid"):
         call(ctx2, "award_xp", kind="combat", scope_id="wolf_fight", scope="meaningful", challenges=[3], participants=["player"])
 
 
 def test_level_up_carries_xp(ctx):
-    ctx.camp.player["progression"]["state"] = {"level": 3, "xp": 200}
+    ctx.camp.player["progression"]["state"] = {"level": 4, "xp": 280}
     call(ctx, "award_xp", kind="event", scope_id="evt1", scope="meaningful", challenges=[3], participants=["player"])
-    assert ctx.camp.player["progression"]["state"] == {"level": 4, "xp": 18}      # 238 - 220
+    assert ctx.camp.player["progression"]["state"] == {"level": 5, "xp": 12}      # 280+29 = 309 - 297
 
 
 # ---- commit ------------------------------------------------------------------------------------
 def test_commit_rules(ctx, dice):
     with pytest.raises(ToolError, match="name the field"):
-        call(ctx, "commit", entries=[{"op": "~", "id": "npcs.oda_brandt", "content": "now angry"}])
+        call(ctx, "commit", entries=[{"op": "~", "id": "npcs.nadia_voss", "content": "now angry"}])
     with pytest.raises(ToolError, match="readable save"):
         call(ctx, "commit", entries=[{"op": "~", "id": "player.condition.hp", "content": "3"}])
     with pytest.raises(ToolError, match="not an engine owner"):
@@ -192,25 +206,28 @@ def test_secret_terms_are_collected(ctx):
 
 
 # ---- time, dues, clocks -----------------------------------------------------------------------
-def test_time_rolls_the_iso_date_and_fires_dues(ctx):
-    out = call(ctx, "advance_time", minutes=1470, activity="a long wait")
-    assert ctx.camp.time["date"] == "2026-03-02" and ctx.camp.time["clock_minutes"] == 480
-    assert "Corvin Hale" in out and "due:npcs.corvin_hale" in ctx.must_settle
+def test_time_rolls_the_iso_date_and_day_index(ctx):
+    assert ctx.camp.time["date"] == "2026-11-01" and ctx.camp.time["clock_minutes"] == 1300
+    call(ctx, "advance_time", minutes=1470, activity="a long wait")                  # 21:40 + 24h30 -> 22:10 next day
+    t = ctx.camp.time
+    assert t["clock_minutes"] == 1330
+    assert t["day_index"] == 27 and t["date"] == "2026-11-02"
+
+
+def test_clock_due_fires_and_check_does_the_arithmetic(ctx):
+    # the import repaired glass_spread: filled 4/6, due 2026-11-03 (it held prose before)
+    assert ctx.get("active_world_pressures.glass_spread.clock.filled") == 4
+    out = call(ctx, "advance_time", minutes=2 * 1440 + 180, activity="days pass")
+    assert "clock:glass_spread" in ctx.must_settle
     with pytest.raises(ToolError, match="settle"):
         call(ctx, "close_round", opened_round=True, visible=["Time passes."])
-    call(ctx, "commit", entries=[{"op": "~", "id": "npcs.corvin_hale.state.due", "content": "2026-03-04 08:00"}])
-    assert call(ctx, "close_round", opened_round=True, visible=["Time passes."]) == "closed"
-
-
-def test_clock_check_does_the_arithmetic(ctx):
-    call(ctx, "advance_time", minutes=5 * 1440, activity="days pass")
-    assert "clock:brine_winds" in ctx.must_settle
-    out = call(ctx, "clock_check", pressure_id="brine_winds", process_operated=True, accelerated=True,
-               next_due="2026-03-11 06:00", reason="winds keep rising")
-    assert "1 → 3/6" in out
-    assert ctx.get("active_world_pressures.brine_winds.clock.filled") == 3
     with pytest.raises(ToolError, match="future"):
-        call(ctx, "clock_check", pressure_id="brine_winds", process_operated=False, next_due="2026-03-01 06:00", reason="x" * 6)
+        call(ctx, "clock_check", pressure_id="glass_spread", process_operated=False, next_due="2026-11-01 06:00", reason="x" * 6)
+    out = call(ctx, "clock_check", pressure_id="glass_spread", process_operated=True, accelerated=True,
+               next_due="2026-11-10 06:00", reason="stones moving again")
+    assert "4 → 6/6" in out and "FULL" in out
+    assert ctx.get("active_world_pressures.glass_spread.clock.filled") == 6
+    assert "clock:glass_spread" not in ctx.must_settle
 
 
 def test_non_iso_calendar_demands_a_date_on_rollover(ctx):
@@ -224,23 +241,27 @@ def test_non_iso_calendar_demands_a_date_on_rollover(ctx):
 def test_rest_recovers_by_the_engine_rules(ctx):
     ctx.camp.player["condition"].update(hp=2, mp=3)
     call(ctx, "rest", hours=2, quality="short")
-    assert ctx.camp.player["condition"]["hp"] == 2 + 3 + 3          # quarter of 14, rounded down = 3 per hour
-    assert ctx.camp.player["condition"]["mp"] == 3                  # rest_only: no short-rest MP
+    assert ctx.camp.player["condition"]["hp"] == 2 + 4 + 4          # quarter of 16 = 4 per hour
+    assert ctx.camp.player["condition"]["mp"] == 3                  # Ashfall MP is `fast`, but only when out of danger
+    call(ctx, "rest", hours=1, quality="short", out_of_danger=True)
+    assert ctx.camp.player["condition"]["mp"] == 16                 # fast: full after ~10 min out of danger
     call(ctx, "rest", hours=8, quality="full_night")
-    assert ctx.camp.player["condition"]["hp"] == 14 and ctx.camp.player["condition"]["mp"] == 10
+    assert ctx.camp.player["condition"]["hp"] == 16
 
 
 # ---- player block -------------------------------------------------------------------------------
 def test_money_resources_and_locations(ctx, dice):
+    assert ctx.camp.player["money"]["cash_and_accessible_funds"] == 6588
     with pytest.raises(ToolError, match="not enough"):
-        call(ctx, "player_update", kind="money", data={"delta": {"silver": -99}}, reason="buying a horse")
-    call(ctx, "player_update", kind="money", data={"delta": {"silver": -4}}, reason="a night's room")
-    assert ctx.camp.player["money"]["silver"] == 10
+        call(ctx, "player_update", kind="money", data={"delta": -99999}, reason="buying a car")
+    call(ctx, "player_update", kind="money", data={"delta": -88}, reason="a night's room")
+    assert ctx.camp.player["money"]["cash_and_accessible_funds"] == 6500
     dice(1)
-    out = call(ctx, "player_update", kind="resource", data={"resource_id": "rations", "op": "draw"}, reason="a day's travel")
-    assert "steps down to d4" in out and ctx.camp.player["resources"]["rations"]["usage_die"] == "d4"
-    call(ctx, "player_update", kind="resource", data={"resource_id": "bolts", "op": "spend", "amount": 3}, reason="shooting")
-    assert ctx.camp.player["resources"]["bolts"]["count"] == 15
+    out = call(ctx, "player_update", kind="resource", data={"resource_id": "first_aid_supplies", "op": "draw"}, reason="a day's travel")
+    assert "steps down to d4" in out and ctx.camp.player["resources"]["first_aid_supplies"]["usage_die"] == "d4"
+    call(ctx, "player_update", kind="resource", data={"resource_id": "rounds", "op": "add", "name": "pistol rounds", "tracking": "exact", "amount": 18}, reason="bought a box")
+    call(ctx, "player_update", kind="resource", data={"resource_id": "rounds", "op": "spend", "amount": 3}, reason="shooting")
+    assert ctx.camp.player["resources"]["rounds"]["count"] == 15
     with pytest.raises(ToolError, match="unknown location"):
         call(ctx, "player_update", kind="location", data={"id": "pellam"}, reason="travel")
     call(ctx, "commit", entries=[{"op": "+", "id": "locations.pellam", "content": '{"name": "Pellam"}', "hidden": False}])
@@ -253,10 +274,12 @@ def test_money_resources_and_locations(ctx, dice):
 
 
 def test_cast_and_mp(ctx):
-    out = call(ctx, "cast", tier="T1", power="hedge-charm of warmth")
-    assert ctx.camp.player["condition"]["mp"] == 7 and "7/10" in out
+    out = call(ctx, "cast", tier="T1", power="a small surge")
+    assert ctx.camp.player["condition"]["mp"] == 13 and "13/16" in out          # T1 costs 3
+    call(ctx, "cast", tier="T2", power="demonic_surge")                         # T2 costs 6 and Rin's best MP skill is T2
+    assert ctx.camp.player["condition"]["mp"] == 7
     with pytest.raises(ToolError, match="above the caster's tier"):
-        call(ctx, "cast", tier="T2", power="greater charm")
+        call(ctx, "cast", tier="T3", power="greater surge")
 
 
 def test_schema_validator_catches_bad_shapes():

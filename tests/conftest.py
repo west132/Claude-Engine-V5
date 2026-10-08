@@ -1,3 +1,4 @@
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -9,6 +10,14 @@ sys.path.insert(0, str(ROOT))
 
 from gmhost import helper                       # noqa: E402
 from gmhost.config import Config                # noqa: E402
+
+DATA = ROOT / "tests" / "data" / "ashfall"
+ASHFALL_BG = ROOT / "examples" / "ashfall_hunter" / "background.md"
+
+
+def user_saves() -> dict[int, Path]:
+    """The user's real campaign: saves R10..R120 of Ashfall: Hunter."""
+    return {int(re.search(r"_R(\d+)", p.name).group(1)): p for p in DATA.glob("save_ashfall_hunter_R*.md")}
 
 
 class FakeRNG:
@@ -41,10 +50,24 @@ def dice(monkeypatch):
 
 @pytest.fixture
 def example_text():
-    return (ROOT / "examples/the_salt_road/background.md").read_text(encoding="utf-8")
+    """Ashfall: Hunter BACKGROUND (the user's world)."""
+    return ASHFALL_BG.read_text(encoding="utf-8")
 
 
 @pytest.fixture
 def camp(cfg, example_text):
+    """A new Ashfall campaign at Round 0."""
     from gmhost.campaign import Campaign
     return Campaign.create(cfg, "t", example_text)
+
+
+@pytest.fixture
+def r120(cfg, example_text):
+    """The user's real campaign state at R120 (day 26, 2026-11-01 21:40)."""
+    from gmhost import saves
+    return saves.import_save(cfg, "r120", user_saves()[120].read_text(encoding="utf-8"), example_text)
+
+
+@pytest.fixture(autouse=True)
+def _helper_loaded():
+    helper.load(ROOT / "engine")
